@@ -73,6 +73,7 @@ unsafe impl cxx::ExternType for Substr {
     type Kind = cxx::kind::Trivial;
 }
 
+/// A bitmask for marking node types.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u64)]
@@ -134,14 +135,14 @@ unsafe impl cxx::ExternType for RepC {
     type Kind = cxx::kind::Trivial;
 }
 
-trait WriteSeek: std::io::Write + std::io::Seek {}
+pub trait WriteSeek: std::io::Write + std::io::Seek {}
 impl<T: std::io::Write + std::io::Seek> WriteSeek for T {}
 
-pub struct RWriter {
-    writer: Box<dyn WriteSeek>,
+pub struct RWriter<'a> {
+    pub writer: &'a mut dyn WriteSeek,
 }
 
-impl RWriter {
+impl RWriter<'_> {
     #[inline(always)]
     fn _get(&mut self, _error_on_excess: bool) -> std::io::Result<Substr> {
         Ok(Substr {
@@ -193,7 +194,7 @@ pub(crate) mod ffi {
     }
     #[namespace = "shimmy"]
     extern "Rust" {
-        type RWriter;
+        type RWriter<'a>;
         fn _get(self: &mut RWriter, error_on_excess: bool) -> Result<substr>;
         fn _do_write(self: &mut RWriter, s: csubstr) -> Result<()>;
         fn _do_write_slice(self: &mut RWriter, slice: &[c_char]) -> Result<()>;
@@ -240,6 +241,7 @@ pub(crate) mod ffi {
         fn reserve_arena(self: Pin<&mut Tree>, node_capacity: usize);
         fn clear(self: Pin<&mut Tree>);
         fn clear_arena(self: Pin<&mut Tree>);
+        fn empty(self: &Tree) -> bool;
         fn size(self: &Tree) -> usize;
         fn capacity(self: &Tree) -> usize;
         fn slack(self: &Tree) -> Result<usize>;
@@ -250,7 +252,7 @@ pub(crate) mod ffi {
 
         fn resolve(self: Pin<&mut Tree>) -> Result<()>;
 
-        fn type_str(self: &Tree, node: usize) -> *const c_char;
+        fn type_str(self: &Tree, node: usize) -> Result<*const c_char>;
 
         fn key(self: &Tree, node: usize) -> Result<&csubstr>;
         fn key_tag(self: &Tree, node: usize) -> Result<&csubstr>;
@@ -288,7 +290,8 @@ pub(crate) mod ffi {
         fn is_anchor(self: &Tree, node: usize) -> Result<bool>;
         fn parent_is_seq(self: &Tree, node: usize) -> Result<bool>;
         fn parent_is_map(self: &Tree, node: usize) -> Result<bool>;
-        fn empty(self: &Tree, node: usize) -> Result<bool>;
+        #[cxx_name = "empty"]
+        fn node_is_empty(self: &Tree, node: usize) -> Result<bool>;
         fn has_anchor(self: &Tree, node: usize, a: csubstr) -> Result<bool>;
 
         fn has_parent(self: &Tree, node: usize) -> Result<bool>;
