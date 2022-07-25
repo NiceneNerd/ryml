@@ -111,15 +111,20 @@ unsafe impl cxx::ExternType for NodeType {
     type Kind = cxx::kind::Trivial;
 }
 
+/// A node in a YAML document. Note that, for FFI simplicity, each value allows
+/// blank string slices instead of being optional.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct NodeScalar {
-    tag: CSubstr,
-    scalar: CSubstr,
-    anchor: CSubstr,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NodeScalar<'a> {
+    /// The tag associated with this node.
+    tag: &'a str,
+    /// The text of the node scalar value.
+    scalar: &'a str,
+    /// The text of the anchor associated with this node.
+    anchor: &'a str,
 }
 
-unsafe impl cxx::ExternType for NodeScalar {
+unsafe impl cxx::ExternType for NodeScalar<'_> {
     type Id = cxx::type_id!("c4::yml::NodeScalar");
     type Kind = cxx::kind::Trivial;
 }
@@ -206,7 +211,7 @@ pub(crate) mod ffi {
         include!("ryml/include/ryml.h");
         /// NodeType and NodeType_e
         type NodeType = super::NodeType;
-        type NodeScalar = super::NodeScalar;
+        type NodeScalar<'a> = super::NodeScalar<'a>;
         fn set(self: Pin<&mut NodeType>, t: u64);
         fn add(self: Pin<&mut NodeType>, t: u64);
         fn rem(self: Pin<&mut NodeType>, t: u64);
@@ -291,7 +296,7 @@ pub(crate) mod ffi {
         fn parent_is_seq(self: &Tree, node: usize) -> Result<bool>;
         fn parent_is_map(self: &Tree, node: usize) -> Result<bool>;
         #[cxx_name = "empty"]
-        fn node_is_empty(self: &Tree, node: usize) -> Result<bool>;
+        fn is_node_empty(self: &Tree, node: usize) -> Result<bool>;
         fn has_anchor(self: &Tree, node: usize, a: csubstr) -> Result<bool>;
 
         fn has_parent(self: &Tree, node: usize) -> Result<bool>;
@@ -326,14 +331,24 @@ pub(crate) mod ffi {
             val: csubstr,
             more_flags: u64,
         ) -> Result<()>;
-        fn to_map(self: Pin<&mut Tree>, node: usize, key: csubstr, more_flags: u64) -> Result<()>;
-        fn to_seq(self: Pin<&mut Tree>, node: usize, key: csubstr, more_flags: u64) -> Result<()>;
+        #[cxx_name = "to_map"]
+        fn to_map_with_key(
+            self: Pin<&mut Tree>,
+            node: usize,
+            key: csubstr,
+            more_flags: u64,
+        ) -> Result<()>;
+        #[cxx_name = "to_seq"]
+        fn to_seq_with_key(
+            self: Pin<&mut Tree>,
+            node: usize,
+            key: csubstr,
+            more_flags: u64,
+        ) -> Result<()>;
         fn to_val(self: Pin<&mut Tree>, node: usize, val: csubstr, more_flags: u64) -> Result<()>;
         fn to_stream(self: Pin<&mut Tree>, node: usize, more_flags: u64) -> Result<()>;
-        #[cxx_name = "to_map"]
-        fn to_map_from_node(self: Pin<&mut Tree>, node: usize, more_flags: u64) -> Result<()>;
-        #[cxx_name = "to_seq"]
-        fn to_seq_from_node(self: Pin<&mut Tree>, node: usize, more_flags: u64) -> Result<()>;
+        fn to_map(self: Pin<&mut Tree>, node: usize, more_flags: u64) -> Result<()>;
+        fn to_seq(self: Pin<&mut Tree>, node: usize, more_flags: u64) -> Result<()>;
         fn to_doc(self: Pin<&mut Tree>, node: usize, more_flags: u64) -> Result<()>;
 
         fn set_key_tag(self: Pin<&mut Tree>, node: usize, tag: csubstr) -> Result<()>;
@@ -449,8 +464,6 @@ pub(crate) mod ffi {
             new_parent: usize,
             after: usize,
         ) -> Result<usize>;
-
-        fn init_ryml_once();
     }
 }
 
@@ -497,7 +510,6 @@ seq: [0 ,  1, 2, 3]"#;
 
     #[test]
     fn mut_tree() -> Result<(), cxx::Exception> {
-        ffi::init_ryml_once();
         let mut src = SRC.to_string();
         let mut tree = unsafe { ffi::parse_in_place(src.as_mut_ptr() as *mut i8, src.len())? };
         let bar_val = tree.find_child(0, &("bar".into()))?;
@@ -529,7 +541,6 @@ seq: [0 ,  1, 2, 3]"#;
 
     #[test]
     fn test_exceptions() -> Result<(), cxx::Exception> {
-        ffi::init_ryml_once();
         let tree = ffi::parse(SRC)?;
         tree.is_doc(555).expect_err("is_doc should fail");
         Ok(())
@@ -537,7 +548,6 @@ seq: [0 ,  1, 2, 3]"#;
 
     #[test]
     fn emit_into_buffer() -> Result<(), cxx::Exception> {
-        ffi::init_ryml_once();
         let tree = ffi::parse(SRC)?;
         let mut buf = vec![0; SRC.len() * 2];
         ffi::emit(

@@ -29,14 +29,22 @@ namespace shimmy
     }); });
     }
 
+    inline std::unique_ptr<ryml::Tree> new_tree()
+    {
+        init_ryml_once();
+        return std::make_unique<ryml::Tree>();
+    }
+
     inline std::unique_ptr<ryml::Tree> parse(rust::Str text)
     {
+        init_ryml_once();
         ryml::Tree tree = c4::yml::parse_in_arena(c4::csubstr(text.data(), text.size()));
         return std::make_unique<ryml::Tree>(tree);
     }
 
     inline std::unique_ptr<ryml::Tree> parse_in_place(char *text, size_t len)
     {
+        init_ryml_once();
         ryml::Tree tree = c4::yml::parse_in_place(c4::substr(text, len));
         return std::make_unique<ryml::Tree>(tree);
     }
