@@ -4,6 +4,7 @@
 use std::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
 mod inner;
+mod node;
 pub use inner::{NodeScalar, NodeType};
 
 const NONE: usize = usize::MAX;
@@ -32,13 +33,40 @@ type Result<T> = std::result::Result<T, Error>;
 
 enum TreeData<'a> {
     Owned,
-    Borrowed(PhantomData<&'a [u8]>),
+    Borrowed(PhantomData<&'a mut [u8]>),
 }
 
 /// Represents a parsed YAML tree
 pub struct Tree<'a> {
     inner: cxx::UniquePtr<inner::ffi::Tree>,
     _data: TreeData<'a>,
+}
+
+impl PartialEq for Tree<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self.inner.deref(), other.inner.deref())
+    }
+}
+
+impl Clone for Tree<'_> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: inner::ffi::clone_tree(self.inner.deref()),
+            _data: TreeData::Borrowed(PhantomData),
+        }
+    }
+}
+
+impl Eq for Tree<'_> {}
+
+impl core::fmt::Debug for Tree<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Tree")
+            .field("len", &self.len())
+            .field("capacity", &self.capacity())
+            .field("arena_capacity", &self.arena_capacity())
+            .finish()
+    }
 }
 
 impl Default for Tree<'_> {
@@ -732,57 +760,57 @@ impl<'a> Tree<'a> {
         Ok(self.inner.pin_mut().to_doc(node, more_flags as u64)?)
     }
 
-    /// Set the tag on the given key node.
+    /// Set the tag on the key of the given node.
     #[inline(always)]
     pub fn set_key_tag(&mut self, node: usize, tag: &str) -> Result<()> {
         Ok(self.inner.pin_mut().set_key_tag(node, tag.into())?)
     }
 
-    /// Set the anchor on the given key node.
+    /// Set the anchor on the key of the given node.
     #[inline(always)]
     pub fn set_key_anchor(&mut self, node: usize, anchor: &str) -> Result<()> {
         Ok(self.inner.pin_mut().set_key_anchor(node, anchor.into())?)
     }
 
-    /// Set the anchor on the given value node.
+    /// Set the anchor on the value of the given node.
     #[inline(always)]
     pub fn set_val_anchor(&mut self, node: usize, anchor: &str) -> Result<()> {
         Ok(self.inner.pin_mut().set_val_anchor(node, anchor.into())?)
     }
 
-    /// Set the ref on the given key node.
+    /// Set the ref on the key of the given node.
     #[inline(always)]
     pub fn set_key_ref(&mut self, node: usize, refr: &str) -> Result<()> {
         Ok(self.inner.pin_mut().set_key_ref(node, refr.into())?)
     }
 
-    /// Set the ref on the given value node.
+    /// Set the ref on the value of the given node.
     #[inline(always)]
     pub fn set_val_ref(&mut self, node: usize, refr: &str) -> Result<()> {
         Ok(self.inner.pin_mut().set_val_ref(node, refr.into())?)
     }
 
-    /// Set the tag on the given value node.
+    /// Set the tag on the value of the given node.
     pub fn set_val_tag(&mut self, node: usize, tag: &str) -> Result<()> {
         Ok(self.inner.pin_mut().set_val_tag(node, tag.into())?)
     }
 
-    /// Remove the anchor on the given key node.
+    /// Remove the anchor on the key of the given node.
     pub fn rem_key_anchor(&mut self, node: usize) -> Result<()> {
         Ok(self.inner.pin_mut().rem_key_anchor(node)?)
     }
 
-    /// Remove the anchor on the given value node.
+    /// Remove the anchor on the value of the given node.
     pub fn rem_val_anchor(&mut self, node: usize) -> Result<()> {
         Ok(self.inner.pin_mut().rem_val_anchor(node)?)
     }
 
-    /// Remove the reference on the given key node.
+    /// Remove the reference on the key of the given node.
     pub fn rem_key_ref(&mut self, node: usize) -> Result<()> {
         Ok(self.inner.pin_mut().rem_key_ref(node)?)
     }
 
-    /// Remove the reference on the given value node.
+    /// Remove the reference on the value of the given node.
     pub fn rem_val_ref(&mut self, node: usize) -> Result<()> {
         Ok(self.inner.pin_mut().rem_val_ref(node)?)
     }
@@ -1038,16 +1066,20 @@ mod tests {
         assert!(tree.find_child(root, "fish").is_err());
         assert!(tree.parent(root).is_err());
         assert!(tree.last_child(2).is_err());
+        tree.child(888, 4444).unwrap();
         Ok(())
     }
 
     #[test]
     fn construct_tree() -> Result<()> {
         let mut tree = Tree::default();
-        dbg!(tree.capacity());
+        assert_eq!(tree.capacity(), 0);
+        tree.reserve(32);
+        tree.to_map(0)?;
         let new_node = tree.append_child(0)?;
         tree.to_keyval(new_node, "hello", "world")?;
-        println!("{}", tree.emit()?);
+        tree.set_val_tag(1, "!str")?;
+        assert_eq!("hello: !str world\n", &tree.emit()?);
         Ok(())
     }
 }

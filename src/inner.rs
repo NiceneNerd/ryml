@@ -1,4 +1,5 @@
-use std::ops::Deref;
+use core::ops::Deref;
+use std::io;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -17,7 +18,7 @@ impl Deref for CSubstr {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(self.ptr, self.len)) }
+        unsafe { core::str::from_utf8_unchecked(core::slice::from_raw_parts(self.ptr, self.len)) }
     }
 }
 
@@ -54,17 +55,17 @@ impl PartialEq for Substr {
     }
 }
 
-impl std::ops::Deref for Substr {
+impl core::ops::Deref for Substr {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(self.ptr, self.len)) }
+        unsafe { core::str::from_utf8_unchecked(core::slice::from_raw_parts(self.ptr, self.len)) }
     }
 }
 
-impl std::ops::DerefMut for Substr {
+impl core::ops::DerefMut for Substr {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { std::mem::transmute(*self) }
+        unsafe { core::mem::transmute(*self) }
     }
 }
 
@@ -140,8 +141,8 @@ unsafe impl cxx::ExternType for RepC {
     type Kind = cxx::kind::Trivial;
 }
 
-pub trait WriteSeek: std::io::Write + std::io::Seek {}
-impl<T: std::io::Write + std::io::Seek> WriteSeek for T {}
+pub trait WriteSeek: io::Write + io::Seek {}
+impl<T: io::Write + io::Seek> WriteSeek for T {}
 
 pub struct RWriter<'a> {
     pub writer: &'a mut dyn WriteSeek,
@@ -149,15 +150,15 @@ pub struct RWriter<'a> {
 
 impl RWriter<'_> {
     #[inline(always)]
-    fn _get(&mut self, _error_on_excess: bool) -> std::io::Result<Substr> {
+    fn _get(&mut self, _error_on_excess: bool) -> io::Result<Substr> {
         Ok(Substr {
-            ptr: std::ptr::null_mut(),
+            ptr: core::ptr::null_mut(),
             len: self.writer.stream_position()? as usize,
         })
     }
 
     #[inline(always)]
-    fn _do_write(&mut self, s: CSubstr) -> std::io::Result<()> {
+    fn _do_write(&mut self, s: CSubstr) -> io::Result<()> {
         if s.is_empty() {
             return Ok(());
         }
@@ -166,7 +167,7 @@ impl RWriter<'_> {
     }
 
     #[inline(always)]
-    fn _do_write_slice(&mut self, slice: &[core::ffi::c_char]) -> std::io::Result<()> {
+    fn _do_write_slice(&mut self, slice: &[core::ffi::c_char]) -> io::Result<()> {
         for c in slice {
             self.writer.write_all(&[*c as u8])?;
         }
@@ -174,13 +175,13 @@ impl RWriter<'_> {
     }
 
     #[inline(always)]
-    fn _do_write_char(&mut self, c: core::ffi::c_char) -> std::io::Result<()> {
+    fn _do_write_char(&mut self, c: core::ffi::c_char) -> io::Result<()> {
         self.writer.write_all(&[c as u8])?;
         Ok(())
     }
 
     #[inline(always)]
-    fn _do_write_repc(&mut self, recp: RepC) -> std::io::Result<()> {
+    fn _do_write_repc(&mut self, recp: RepC) -> io::Result<()> {
         for _ in 0..recp.num_times {
             self.writer.write_all(&[recp.char as u8])?;
         }
@@ -451,6 +452,7 @@ pub(crate) mod ffi {
     unsafe extern "C++" {
         include!("ryml/include/shim.h");
         fn new_tree() -> UniquePtr<Tree>;
+        fn clone_tree(tree: &Tree) -> UniquePtr<Tree>;
         fn parse(text: &str) -> Result<UniquePtr<Tree>>;
         unsafe fn parse_in_place(text: *mut c_char, len: usize) -> Result<UniquePtr<Tree>>;
         fn emit_to_rwriter(tree: &Tree, writer: Box<RWriter>) -> Result<usize>;
@@ -536,7 +538,7 @@ seq: [0 ,  1, 2, 3]"#;
             },
             true,
         )?;
-        println!("{}", unsafe { std::str::from_utf8_unchecked(&buf) });
+        println!("{}", unsafe { core::str::from_utf8_unchecked(&buf) });
         ffi::emit_json(
             &tree,
             Substr {
@@ -569,7 +571,7 @@ seq: [0 ,  1, 2, 3]"#;
             },
             true,
         )?;
-        println!("{}", unsafe { std::str::from_utf8_unchecked(&buf) });
+        println!("{}", unsafe { core::str::from_utf8_unchecked(&buf) });
         Ok(())
     }
 }

@@ -20,8 +20,8 @@ namespace shimmy
         std::call_once(s_flag, []
                        {
     ryml::Callbacks callbacks = ryml::get_callbacks();
-    callbacks.m_error = [](const char* msg, size_t msg_len, ryml::Location, void*) {
-      throw RymlError("RymlError: " + std::string(msg, msg_len));
+    callbacks.m_error = [](const char* msg, size_t msg_len, ryml::Location loc, void*) {
+      throw RymlError(std::string(msg, msg_len) + "\n    at " + std::string(loc.name.data(), loc.name.len) + ":" + std::to_string(loc.line));
     };
     ryml::set_callbacks(callbacks);
     c4::set_error_callback([](const char* msg, size_t msg_size) {
@@ -35,18 +35,24 @@ namespace shimmy
         return std::make_unique<ryml::Tree>();
     }
 
+    inline std::unique_ptr<ryml::Tree> clone_tree(const ryml::Tree &tree)
+    {
+        init_ryml_once();
+        return std::make_unique<ryml::Tree>(tree);
+    }
+
     inline std::unique_ptr<ryml::Tree> parse(rust::Str text)
     {
         init_ryml_once();
         ryml::Tree tree = c4::yml::parse_in_arena(c4::csubstr(text.data(), text.size()));
-        return std::make_unique<ryml::Tree>(tree);
+        return std::make_unique<ryml::Tree>(std::move(tree));
     }
 
     inline std::unique_ptr<ryml::Tree> parse_in_place(char *text, size_t len)
     {
         init_ryml_once();
         ryml::Tree tree = c4::yml::parse_in_place(c4::substr(text, len));
-        return std::make_unique<ryml::Tree>(tree);
+        return std::make_unique<ryml::Tree>(std::move(tree));
     }
 
     inline c4::yml::NodeType tree_node_type(const ryml::Tree &tree, size_t node)
