@@ -452,7 +452,7 @@ pub(crate) mod ffi {
         include!("ryml/include/shim.h");
         fn parse(text: &str) -> Result<UniquePtr<Tree>>;
         unsafe fn parse_in_place(text: *mut c_char, len: usize) -> Result<UniquePtr<Tree>>;
-        fn emit_to_rwriter(tree: &Tree, writer: Box<RWriter<'_>>) -> Result<usize>;
+        fn emit_to_rwriter(tree: &Tree, writer: Box<RWriter>) -> Result<usize>;
 
         fn tree_node_type(tree: &Tree, node: usize) -> Result<NodeType>;
 

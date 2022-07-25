@@ -9,6 +9,9 @@ pub use inner::{NodeScalar, NodeType};
 /// Error type for this crate
 #[derive(Debug, Error)]
 pub enum Error {
+    /// Convenience for converting None options to results.
+    #[error("None error: {0:?}")]
+    None(#[from] std::option::Option<std::convert::Infallible>),
     /// A general exception thrown by rapidyaml over FFI.
     #[error(transparent)]
     Other(#[from] cxx::Exception),
@@ -976,5 +979,19 @@ impl<'a> Tree<'a> {
             after,
         )?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    static SRC: &str = include_str!("../test/AIScheduleAnchor.aiprog.yml");
+
+    #[test]
+    fn parse() {
+        let tree = Tree::parse(SRC).unwrap();
+        assert_eq!(78, tree.len());
+        tree.val(47).unwrap();
     }
 }
