@@ -207,6 +207,7 @@ pub(crate) mod ffi {
         fn _do_write_repc(self: &mut RWriter, recp: RepC) -> Result<()>;
     }
     #[namespace = "c4::yml"]
+    #[allow(missing_docs)]
     unsafe extern "C++" {
         include!("ryml/include/ryml.h");
         /// NodeType and NodeType_e
@@ -377,7 +378,8 @@ pub(crate) mod ffi {
         fn prepend_sibling(self: Pin<&mut Tree>, node: usize) -> Result<usize>;
         fn append_sibling(self: Pin<&mut Tree>, node: usize) -> Result<usize>;
 
-        /// remove an entire branch at once: ie remove the children and the node itself
+        /// remove an entire branch at once: ie remove the children and the node
+        /// itself
         fn remove(self: Pin<&mut Tree>, node: usize) -> Result<()>;
         /// remove all the node's children, but keep the node itself
         fn remove_children(self: Pin<&mut Tree>, node: usize) -> Result<()>;
@@ -420,12 +422,20 @@ pub(crate) mod ffi {
         ) -> Result<usize>;
 
         fn duplicate_contents(self: Pin<&mut Tree>, node: usize, loc: usize) -> Result<()>;
+        #[cxx_name = "duplicate_contents"]
+        unsafe fn duplicate_contents_from_tree(
+            self: Pin<&mut Tree>,
+            tree: *const Tree,
+            node: usize,
+            loc: usize,
+        ) -> Result<()>;
 
-        /// duplicate the node's children (but not the node) in a new parent, but
-        /// omit repetitions where a duplicated node has the same key (in maps) or
-        /// value (in seqs). If one of the duplicated children has the same key
-        /// (in maps) or value (in seqs) as one of the parent's children, the one
-        /// that is placed closest to the end will prevail.
+        /// duplicate the node's children (but not the node) in a new parent,
+        /// but omit repetitions where a duplicated node has the same
+        /// key (in maps) or value (in seqs). If one of the duplicated
+        /// children has the same key (in maps) or value (in seqs) as
+        /// one of the parent's children, the one that is placed closest
+        /// to the end will prevail.
         fn duplicate_children_no_rep(
             self: Pin<&mut Tree>,
             node: usize,
@@ -442,7 +452,7 @@ pub(crate) mod ffi {
         include!("ryml/include/shim.h");
         fn parse(text: &str) -> Result<UniquePtr<Tree>>;
         unsafe fn parse_in_place(text: *mut c_char, len: usize) -> Result<UniquePtr<Tree>>;
-        fn emit_to_rwriter(tree: &Tree, writer: Box<RWriter>) -> Result<usize>;
+        fn emit_to_rwriter(tree: &Tree, writer: Box<RWriter<'_>>) -> Result<usize>;
 
         fn tree_node_type(tree: &Tree, node: usize) -> Result<NodeType>;
 
