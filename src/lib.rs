@@ -6,12 +6,23 @@ use thiserror::Error;
 mod inner;
 pub use inner::{NodeScalar, NodeType};
 
+const NONE: usize = usize::MAX;
+
+macro_rules! not_none {
+    ($result:expr) => {
+        match $result {
+            NONE => return Err(Error::NodeNotFound),
+            v => Ok(v),
+        }
+    };
+}
+
 /// Error type for this crate
 #[derive(Debug, Error)]
 pub enum Error {
-    /// Convenience for converting None options to results.
-    #[error("None error: {0:?}")]
-    None(#[from] std::option::Option<std::convert::Infallible>),
+    /// Thrown when a node lookup turns up empty.
+    #[error("Node does not exist")]
+    NodeNotFound,
     /// A general exception thrown by rapidyaml over FFI.
     #[error(transparent)]
     Other(#[from] cxx::Exception),
@@ -28,6 +39,15 @@ enum TreeData<'a> {
 pub struct Tree<'a> {
     inner: cxx::UniquePtr<inner::ffi::Tree>,
     _data: TreeData<'a>,
+}
+
+impl Default for Tree<'_> {
+    fn default() -> Self {
+        Self {
+            inner: inner::ffi::new_tree(),
+            _data: TreeData::Owned,
+        }
+    }
 }
 
 impl<'a> Tree<'a> {
@@ -99,8 +119,8 @@ impl<'a> Tree<'a> {
 
     /// Get the node to the root node.
     #[inline(always)]
-    pub fn root_id(&self) -> Option<usize> {
-        self.inner.root_id().ok()
+    pub fn root_id(&self) -> Result<usize> {
+        Ok(self.inner.root_id()?)
     }
 
     /// Get the total number of nodes.
@@ -207,380 +227,380 @@ impl<'a> Tree<'a> {
 
     /// Get the type of the given node, if it exists.
     #[inline(always)]
-    pub fn node_type(&self, node: usize) -> Option<NodeType> {
-        inner::ffi::tree_node_type(&self.inner, node).ok()
+    pub fn node_type(&self, node: usize) -> Result<NodeType> {
+        Ok(inner::ffi::tree_node_type(&self.inner, node)?)
     }
 
     /// Get the type name of the given node, if it exists.
     #[inline(always)]
-    pub fn node_type_as_str(&self, node: usize) -> Option<&str> {
-        let ptr = self.inner.type_str(node).ok()?;
-        unsafe { std::ffi::CStr::from_ptr(ptr) }.to_str().ok()
+    pub fn node_type_as_str(&self, node: usize) -> Result<&str> {
+        let ptr = self.inner.type_str(node)?;
+        Ok(unsafe { std::ffi::CStr::from_ptr(ptr).to_str().unwrap_unchecked() })
     }
 
     /// Get the text of the given node, if it exists and is a key.
     #[inline(always)]
-    pub fn key(&self, node: usize) -> Option<&str> {
-        self.inner.key(node).ok().map(|s| s.as_ref())
+    pub fn key(&self, node: usize) -> Result<&str> {
+        Ok(self.inner.key(node).map(|s| s.as_ref())?)
     }
 
     /// Get the text of the tag on the key of the given node, if it exists and
     /// is a tagged key.
     #[inline(always)]
-    pub fn key_tag(&self, node: usize) -> Option<&str> {
-        self.inner.key_tag(node).ok().map(|s| s.as_ref())
+    pub fn key_tag(&self, node: usize) -> Result<&str> {
+        Ok(self.inner.key_tag(node).map(|s| s.as_ref())?)
     }
 
     /// Get the text of the reference on the key of the given node, if it exists
     /// and is a reference.
-    pub fn key_ref(&self, node: usize) -> Option<&str> {
-        self.inner.key_ref(node).ok().map(|s| s.as_ref())
+    pub fn key_ref(&self, node: usize) -> Result<&str> {
+        Ok(self.inner.key_ref(node).map(|s| s.as_ref())?)
     }
 
     /// Get the text of the anchor on the key of the given node, if it exists
     /// and is an anchor.
-    pub fn key_anchor(&self, node: usize) -> Option<&str> {
-        self.inner.key_anchor(node).ok().map(|s| s.as_ref())
+    pub fn key_anchor(&self, node: usize) -> Result<&str> {
+        Ok(self.inner.key_anchor(node).map(|s| s.as_ref())?)
     }
 
     /// Get the whole scalar key of the given node, if it exists and is a
     /// scalar key.
-    pub fn key_scalar(&self, node: usize) -> Option<&NodeScalar> {
-        self.inner.keysc(node).ok()
+    pub fn key_scalar(&self, node: usize) -> Result<&NodeScalar> {
+        Ok(self.inner.keysc(node)?)
     }
 
     /// Get the text of the given node, if it exists and is a value.
     #[inline(always)]
-    pub fn val(&self, node: usize) -> Option<&str> {
-        self.inner.val(node).ok().map(|s| s.as_ref())
+    pub fn val(&self, node: usize) -> Result<&str> {
+        Ok(self.inner.val(node).map(|s| s.as_ref())?)
     }
 
     /// Get the text of the tag on the value of the given node, if it exists and
     /// is a tagged value.
     #[inline(always)]
-    pub fn val_tag(&self, node: usize) -> Option<&str> {
-        self.inner.val_tag(node).ok().map(|s| s.as_ref())
+    pub fn val_tag(&self, node: usize) -> Result<&str> {
+        Ok(self.inner.val_tag(node).map(|s| s.as_ref())?)
     }
 
     /// Get the text of the reference on the value of the given node, if it
     /// exists and is a reference.
     #[inline(always)]
-    pub fn val_ref(&self, node: usize) -> Option<&str> {
-        self.inner.val_ref(node).ok().map(|s| s.as_ref())
+    pub fn val_ref(&self, node: usize) -> Result<&str> {
+        Ok(self.inner.val_ref(node).map(|s| s.as_ref())?)
     }
 
     /// Get the text of the anchor on the value of the given node, if it exists
     /// and is an anchor.
     #[inline(always)]
-    pub fn val_anchor(&self, node: usize) -> Option<&str> {
-        self.inner.val_anchor(node).ok().map(|s| s.as_ref())
+    pub fn val_anchor(&self, node: usize) -> Result<&str> {
+        Ok(self.inner.val_anchor(node).map(|s| s.as_ref())?)
     }
 
     /// Get the whole scalar value of the given node, if it exists and is a
     /// scalar value.
     #[inline(always)]
-    pub fn val_scalar(&self, node: usize) -> Option<&NodeScalar> {
-        self.inner.valsc(node).ok()
+    pub fn val_scalar(&self, node: usize) -> Result<&NodeScalar> {
+        Ok(self.inner.valsc(node)?)
     }
 
     /// If the given node exists, returns true if it is a root.
     #[inline(always)]
-    pub fn is_root(&self, node: usize) -> Option<bool> {
-        self.inner.is_root(node).ok()
+    pub fn is_root(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_root(node)?)
     }
 
     /// If the given node exists, returns true if it is a stream.
     #[inline(always)]
-    pub fn is_stream(&self, node: usize) -> Option<bool> {
-        self.inner.is_stream(node).ok()
+    pub fn is_stream(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_stream(node)?)
     }
 
     /// If the given node exists, returns true if it is a doc.
     #[inline(always)]
-    pub fn is_doc(&self, node: usize) -> Option<bool> {
-        self.inner.is_doc(node).ok()
+    pub fn is_doc(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_doc(node)?)
     }
 
     /// If the given node exists, returns true if it is a container.
     #[inline(always)]
-    pub fn is_container(&self, node: usize) -> Option<bool> {
-        self.inner.is_container(node).ok()
+    pub fn is_container(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_container(node)?)
     }
 
     /// If the given node exists, returns true if it is a map.
     #[inline(always)]
-    pub fn is_map(&self, node: usize) -> Option<bool> {
-        self.inner.is_map(node).ok()
+    pub fn is_map(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_map(node)?)
     }
 
     /// If the given node exists, returns true if it is a seq.
     #[inline(always)]
-    pub fn is_seq(&self, node: usize) -> Option<bool> {
-        self.inner.is_seq(node).ok()
+    pub fn is_seq(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_seq(node)?)
     }
 
     /// If the given node exists, returns true if it has a value.
     #[inline(always)]
-    pub fn has_val(&self, node: usize) -> Option<bool> {
-        self.inner.has_val(node).ok()
+    pub fn has_val(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.has_val(node)?)
     }
 
     /// If the given node exists, returns true if it has a key.
     #[inline(always)]
-    pub fn has_key(&self, node: usize) -> Option<bool> {
-        self.inner.has_key(node).ok()
+    pub fn has_key(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.has_key(node)?)
     }
 
     /// If the given node exists, returns true if it is a value.
     #[inline(always)]
-    pub fn is_val(&self, node: usize) -> Option<bool> {
-        self.inner.is_val(node).ok()
+    pub fn is_val(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_val(node)?)
     }
 
     /// If the given node exists, returns true if it is a keyval.
     #[inline(always)]
-    pub fn is_keyval(&self, node: usize) -> Option<bool> {
-        self.inner.is_keyval(node).ok()
+    pub fn is_keyval(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_keyval(node)?)
     }
 
     /// If the given node exists, returns true if it has a tagged key.
     #[inline(always)]
-    pub fn has_key_tag(&self, node: usize) -> Option<bool> {
-        self.inner.has_key_tag(node).ok()
+    pub fn has_key_tag(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.has_key_tag(node)?)
     }
 
     /// If the given node exists, returns true if it has a tagged value.
     #[inline(always)]
-    pub fn has_val_tag(&self, node: usize) -> Option<bool> {
-        self.inner.has_val_tag(node).ok()
+    pub fn has_val_tag(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.has_val_tag(node)?)
     }
 
     /// If the given node exists, returns true if it has an anchor key.
     #[inline(always)]
-    pub fn has_key_anchor(&self, node: usize) -> Option<bool> {
-        self.inner.has_key_anchor(node).ok()
+    pub fn has_key_anchor(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.has_key_anchor(node)?)
     }
 
     /// If the given node exists, returns true if it has an anchor value.
     #[inline(always)]
-    pub fn has_val_anchor(&self, node: usize) -> Option<bool> {
-        self.inner.has_val_anchor(node).ok()
+    pub fn has_val_anchor(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.has_val_anchor(node)?)
     }
 
     /// If the given node exists, returns true if it is a key_ref.
     #[inline(always)]
-    pub fn is_key_ref(&self, node: usize) -> Option<bool> {
-        self.inner.is_key_ref(node).ok()
+    pub fn is_key_ref(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_key_ref(node)?)
     }
 
     /// If the given node exists, returns true if it is a val_ref.
     #[inline(always)]
-    pub fn is_val_ref(&self, node: usize) -> Option<bool> {
-        self.inner.is_val_ref(node).ok()
+    pub fn is_val_ref(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_val_ref(node)?)
     }
 
     /// If the given node exists, returns true if it is a ref.
     #[inline(always)]
-    pub fn is_ref(&self, node: usize) -> Option<bool> {
-        self.inner.is_ref(node).ok()
+    pub fn is_ref(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_ref(node)?)
     }
 
     /// If the given node exists, returns true if it is a anchor_or_ref.
     #[inline(always)]
-    pub fn is_anchor_or_ref(&self, node: usize) -> Option<bool> {
-        self.inner.is_anchor_or_ref(node).ok()
+    pub fn is_anchor_or_ref(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_anchor_or_ref(node)?)
     }
 
     /// If the given node exists, returns true if it is a key_quoted.
     #[inline(always)]
-    pub fn is_key_quoted(&self, node: usize) -> Option<bool> {
-        self.inner.is_key_quoted(node).ok()
+    pub fn is_key_quoted(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_key_quoted(node)?)
     }
 
     /// If the given node exists, returns true if it is a val_quoted.
     #[inline(always)]
-    pub fn is_val_quoted(&self, node: usize) -> Option<bool> {
-        self.inner.is_val_quoted(node).ok()
+    pub fn is_val_quoted(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_val_quoted(node)?)
     }
 
     /// If the given node exists, returns true if it is a quoted.
     #[inline(always)]
-    pub fn is_quoted(&self, node: usize) -> Option<bool> {
-        self.inner.is_quoted(node).ok()
+    pub fn is_quoted(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_quoted(node)?)
     }
 
     /// If the given node exists, returns true if it is a anchor.
     #[inline(always)]
-    pub fn is_anchor(&self, node: usize) -> Option<bool> {
-        self.inner.is_anchor(node).ok()
+    pub fn is_anchor(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_anchor(node)?)
     }
 
     /// If the given node exists, returns true if the parent is a
     /// sequence.
     #[inline(always)]
-    pub fn parent_is_seq(&self, node: usize) -> Option<bool> {
-        self.inner.parent_is_seq(node).ok()
+    pub fn parent_is_seq(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.parent_is_seq(node)?)
     }
 
     /// If the given node exists, returns true if the parent is a
     /// map.
     #[inline(always)]
-    pub fn parent_is_map(&self, node: usize) -> Option<bool> {
-        self.inner.parent_is_map(node).ok()
+    pub fn parent_is_map(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.parent_is_map(node)?)
     }
 
     /// If the given node exists, returns true if it is empty.
     #[inline(always)]
-    pub fn is_node_empty(&self, node: usize) -> Option<bool> {
-        self.inner.is_node_empty(node).ok()
+    pub fn is_node_empty(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.is_node_empty(node)?)
     }
 
     /// If the given node exists, returns true if it has an anchor.
     #[inline(always)]
-    pub fn has_anchor(&self, node: usize, anchor: &str) -> Option<bool> {
-        self.inner.has_anchor(node, anchor.into()).ok()
+    pub fn has_anchor(&self, node: usize, anchor: &str) -> Result<bool> {
+        Ok(self.inner.has_anchor(node, anchor.into())?)
     }
 
     /// If the given node exists, returns true if it has a parent.
     #[inline(always)]
-    pub fn has_parent(&self, node: usize) -> Option<bool> {
-        self.inner.has_parent(node).ok()
+    pub fn has_parent(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.has_parent(node)?)
     }
     /// If the given node exists, returns true if it has a child.
     #[inline(always)]
-    pub fn has_child(&self, node: usize, key: &str) -> Option<bool> {
-        self.inner.has_child(node, key.into()).ok()
+    pub fn has_child(&self, node: usize, key: &str) -> Result<bool> {
+        Ok(self.inner.has_child(node, key.into())?)
     }
     /// If the given node exists, returns true if it has children.
     #[inline(always)]
-    pub fn has_children(&self, node: usize) -> Option<bool> {
-        self.inner.has_children(node).ok()
+    pub fn has_children(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.has_children(node)?)
     }
     /// If the given node exists, returns true if it has a sibling.
     #[inline(always)]
-    pub fn has_sibling(&self, node: usize, key: &str) -> Option<bool> {
-        self.inner.has_sibling(node, key.into()).ok()
+    pub fn has_sibling(&self, node: usize, key: &str) -> Result<bool> {
+        Ok(self.inner.has_sibling(node, key.into())?)
     }
     /// If the given node exists, returns true if it has siblings.
     #[inline(always)]
-    pub fn has_siblings(&self, node: usize) -> Option<bool> {
-        self.inner.has_siblings(node).ok()
+    pub fn has_siblings(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.has_siblings(node)?)
     }
     /// If the given node exists, returns true if it has other siblings.
     #[inline(always)]
-    pub fn has_other_siblings(&self, node: usize) -> Option<bool> {
-        self.inner.has_other_siblings(node).ok()
+    pub fn has_other_siblings(&self, node: usize) -> Result<bool> {
+        Ok(self.inner.has_other_siblings(node)?)
     }
 
     /// If the given node exists and has a parent, returns the
     /// parent node.
     #[inline(always)]
-    pub fn parent(&self, node: usize) -> Option<usize> {
-        self.inner.parent(node).ok()
+    pub fn parent(&self, node: usize) -> Result<usize> {
+        not_none!(self.inner.parent(node)?)
     }
 
     /// If the given node exists and has a previous sibling, returns the index
     /// to the sibling node.
     #[inline(always)]
-    pub fn prev_sibling(&self, node: usize) -> Option<usize> {
-        self.inner.prev_sibling(node).ok()
+    pub fn prev_sibling(&self, node: usize) -> Result<usize> {
+        not_none!(self.inner.prev_sibling(node)?)
     }
 
     /// If the given node exists and has a next sibling, returns the index to
     /// the sibling node.
     #[inline(always)]
-    pub fn next_sibling(&self, node: usize) -> Option<usize> {
-        self.inner.next_sibling(node).ok()
+    pub fn next_sibling(&self, node: usize) -> Result<usize> {
+        not_none!(self.inner.next_sibling(node)?)
     }
 
     /// If the given node exists and has children, returns the
     /// number of children.
     #[inline(always)]
-    pub fn num_children(&self, node: usize) -> Option<usize> {
-        self.inner.num_children(node).ok()
+    pub fn num_children(&self, node: usize) -> Result<usize> {
+        Ok(self.inner.num_children(node)?)
     }
 
     /// If the given node exists and has the given child, returns
     /// the position of the child in the parent node.
     #[inline(always)]
-    pub fn child_pos(&self, node: usize, child: usize) -> Option<usize> {
-        self.inner.child_pos(node, child).ok()
+    pub fn child_pos(&self, node: usize, child: usize) -> Result<usize> {
+        Ok(self.inner.child_pos(node, child)?)
     }
 
     /// If the given node exists and has children, returns the index of the
     /// first child node.
     #[inline(always)]
-    pub fn first_child(&self, node: usize) -> Option<usize> {
-        self.inner.first_child(node).ok()
+    pub fn first_child(&self, node: usize) -> Result<usize> {
+        not_none!(self.inner.first_child(node)?)
     }
 
     /// If the given node exists and has children, returns the
     /// index to the last child node.
     #[inline(always)]
-    pub fn last_child(&self, node: usize) -> Option<usize> {
-        self.inner.last_child(node).ok()
+    pub fn last_child(&self, node: usize) -> Result<usize> {
+        not_none!(self.inner.last_child(node)?)
     }
 
     /// If the given node exists and has a child at the given
     /// position, returns the index to the child node.
     #[inline(always)]
-    pub fn child(&self, node: usize, pos: usize) -> Option<usize> {
-        self.inner.child(node, pos).ok()
+    pub fn child(&self, node: usize, pos: usize) -> Result<usize> {
+        not_none!(self.inner.child(node, pos)?)
     }
 
     /// If the given node exists and has a child at the given
     /// key, returns the index to the child node.
     #[inline(always)]
-    pub fn find_child(&self, node: usize, key: &str) -> Option<usize> {
-        self.inner.find_child(node, &(key.into())).ok()
+    pub fn find_child(&self, node: usize, key: &str) -> Result<usize> {
+        not_none!(self.inner.find_child(node, &(key.into()))?)
     }
 
     /// If the given node exists and has siblings, returns the
     /// number of siblings.
     #[inline(always)]
-    pub fn num_siblings(&self, node: usize) -> Option<usize> {
-        self.inner.num_siblings(node).ok()
+    pub fn num_siblings(&self, node: usize) -> Result<usize> {
+        Ok(self.inner.num_siblings(node)?)
     }
 
     /// If the given node exists and has other siblings, returns
     /// the number of other siblings.
     #[inline(always)]
-    pub fn num_other_siblings(&self, node: usize) -> Option<usize> {
-        self.inner.num_other_siblings(node).ok()
+    pub fn num_other_siblings(&self, node: usize) -> Result<usize> {
+        Ok(self.inner.num_other_siblings(node)?)
     }
 
     /// If the given node exists and has the given sibling, get
     /// position of the sibling in in the parent.
     #[inline(always)]
-    pub fn sibling_pos(&self, node: usize, sibling: usize) -> Option<usize> {
-        self.inner.sibling_pos(node, sibling).ok()
+    pub fn sibling_pos(&self, node: usize, sibling: usize) -> Result<usize> {
+        Ok(self.inner.sibling_pos(node, sibling)?)
     }
 
     /// If the given node exists and has siblings, returns the
     /// index to the first sibling node.
     #[inline(always)]
-    pub fn first_sibling(&self, node: usize) -> Option<usize> {
-        self.inner.first_sibling(node).ok()
+    pub fn first_sibling(&self, node: usize) -> Result<usize> {
+        not_none!(self.inner.first_sibling(node)?)
     }
 
     /// If the given node exists and has siblings, returns the
     /// index to the last sibling node.
     #[inline(always)]
-    pub fn last_sibling(&self, node: usize) -> Option<usize> {
-        self.inner.last_sibling(node).ok()
+    pub fn last_sibling(&self, node: usize) -> Result<usize> {
+        not_none!(self.inner.last_sibling(node)?)
     }
     /// If the given node exists and has a sibling as the given
     /// position, returns the index to the sibling node.
     #[inline(always)]
-    pub fn sibling(&self, node: usize, pos: usize) -> Option<usize> {
-        self.inner.sibling(node, pos).ok()
+    pub fn sibling(&self, node: usize, pos: usize) -> Result<usize> {
+        not_none!(self.inner.sibling(node, pos)?)
     }
 
     /// If the given node exists and has a sibling at the given
     /// key, returns the index to the sibling node.
     #[inline(always)]
-    pub fn find_sibling(&self, node: usize, key: &str) -> Option<usize> {
-        self.inner.find_sibling(node, &(key.into())).ok()
+    pub fn find_sibling(&self, node: usize, key: &str) -> Result<usize> {
+        not_none!(self.inner.find_sibling(node, &(key.into()))?)
     }
 
     /// Turn the given node into a key-value pair.
@@ -989,9 +1009,45 @@ mod tests {
     static SRC: &str = include_str!("../test/AIScheduleAnchor.aiprog.yml");
 
     #[test]
-    fn parse() {
-        let tree = Tree::parse(SRC).unwrap();
+    fn parse() -> Result<()> {
+        let tree = Tree::parse(SRC)?;
         assert_eq!(78, tree.len());
-        tree.val(47).unwrap();
+        let root = tree.root_id()?;
+        assert_eq!("!io", tree.val_tag(root)?);
+        assert_eq!("0", tree.val(tree.find_child(root, "version")?)?);
+        let param_root = tree.find_child(root, "param_root")?;
+        assert_eq!("!list", tree.val_tag(param_root)?);
+        assert_eq!(2, tree.num_children(param_root)?);
+        let root_lists = tree.find_child(param_root, "lists")?;
+        assert_eq!(4, tree.num_children(root_lists)?);
+        let actions = tree.find_child(root_lists, "Action")?;
+        assert_eq!("!list", tree.val_tag(actions)?);
+        let action_lists = tree.find_child(actions, "lists")?;
+        for i in 0..tree.num_children(action_lists)? {
+            let action = tree.child(action_lists, i)?;
+            assert_eq!(tree.key(action)?, format!("Action_{}", i));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn empties() -> Result<()> {
+        let src = "key: value";
+        let tree = Tree::parse(src).unwrap();
+        let root = tree.root_id()?;
+        assert!(tree.find_child(root, "fish").is_err());
+        assert!(tree.parent(root).is_err());
+        assert!(tree.last_child(2).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn construct_tree() -> Result<()> {
+        let mut tree = Tree::default();
+        dbg!(tree.capacity());
+        let new_node = tree.append_child(0)?;
+        tree.to_keyval(new_node, "hello", "world")?;
+        println!("{}", tree.emit()?);
+        Ok(())
     }
 }

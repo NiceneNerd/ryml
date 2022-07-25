@@ -450,6 +450,7 @@ pub(crate) mod ffi {
     #[namespace = "shimmy"]
     unsafe extern "C++" {
         include!("ryml/include/shim.h");
+        fn new_tree() -> UniquePtr<Tree>;
         fn parse(text: &str) -> Result<UniquePtr<Tree>>;
         unsafe fn parse_in_place(text: *mut c_char, len: usize) -> Result<UniquePtr<Tree>>;
         fn emit_to_rwriter(tree: &Tree, writer: Box<RWriter>) -> Result<usize>;
