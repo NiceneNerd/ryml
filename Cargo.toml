@@ -1,5 +1,9 @@
 [package]
 name = "ryml"
+authors = ["Caleb Smith <c.smith@tuta.io>"]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/NiceneNerd/ryml"
+keywords = ["yaml", "ryml", "rapidyaml", "ffi", "bindings"]
 version = "0.1.0"
 edition = "2021"
 
