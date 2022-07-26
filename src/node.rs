@@ -1,27 +1,27 @@
+use super::*;
 use crate::inner::NodeData;
 
-use super::*;
-
-/// A seed value used for lazy assignment of new nodes by a [`NodeRef`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Seed<'k> {
-    /// No seed needed when the node exists.
+pub enum SeedInner<'k> {
     None,
-    /// Position in the parent node for a new node.
     Index(usize),
-    /// Key in the parent map for a new node.
     Key(&'k str),
 }
 
+/// A seed value used for lazy assignment of new nodes by a [`NodeRef`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// The real value is wrapped to prevent public construction.
+pub struct Seed<'k>(SeedInner<'k>);
+
 impl From<usize> for Seed<'_> {
     fn from(index: usize) -> Self {
-        Seed::Index(index)
+        Self(SeedInner::Index(index))
     }
 }
 
 impl<'k> From<&'k str> for Seed<'k> {
     fn from(key: &'k str) -> Self {
-        Seed::Key(key)
+        Self(SeedInner::Key(key))
     }
 }
 
@@ -60,7 +60,7 @@ where
         NodeRef {
             tree,
             index,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         }
     }
@@ -108,7 +108,7 @@ where
     /// Check if the node reference holds a seed for a non-existent node.
     #[inline(always)]
     pub fn is_seed(&self) -> bool {
-        self.seed != Seed::None
+        self.seed != Seed(SeedInner::None)
     }
 
     /// Get the node type, if it exists.
@@ -418,16 +418,12 @@ where
 
     /// Returns a [`NodeRef`] to the parent node, if it exists.
     #[inline(always)]
-    pub fn parent<'r1>(&'r1 self) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>>
-    where
-        't: 'r1,
-    {
+    pub fn parent<'r>(&'r self) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>> {
         let parent = self.tree.as_ref().parent(self.index)?;
-        let tree_ref = self.tree.as_ref() as *const Tree<'a>;
         Ok(NodeRef {
-            tree: unsafe { tree_ref.as_ref().unwrap() },
+            tree: tree_ref!(self.tree),
             index: parent,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -439,7 +435,7 @@ where
         Ok(NodeRef {
             tree: tree_ref!(self.tree),
             index: sibling,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -451,7 +447,7 @@ where
         Ok(NodeRef {
             tree: tree_ref!(self.tree),
             index: sibling,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -475,7 +471,7 @@ where
         Ok(NodeRef {
             tree: tree_ref!(self.tree),
             index: child,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -487,7 +483,7 @@ where
         Ok(NodeRef {
             tree: tree_ref!(self.tree),
             index: child,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -500,7 +496,7 @@ where
         Ok(NodeRef {
             tree: tree_ref!(self.tree),
             index: child,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -513,7 +509,7 @@ where
         Ok(NodeRef {
             tree: tree_ref!(self.tree),
             index: child,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -525,7 +521,7 @@ where
         Ok(NodeRef {
             tree: tree_ref!(self.tree),
             index: sibling,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -537,7 +533,7 @@ where
         Ok(NodeRef {
             tree: tree_ref!(self.tree),
             index: sibling,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -550,7 +546,7 @@ where
         Ok(NodeRef {
             tree: tree_ref!(self.tree),
             index: sibling,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -563,7 +559,7 @@ where
         Ok(NodeRef {
             tree: tree_ref!(self.tree),
             index: sibling,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -578,24 +574,26 @@ where
         &'r self,
         lookup: S,
     ) -> Result<NodeRef<'a, 't, 'k2, &'t Tree<'a>>> {
-        if self.seed != Seed::None {
+        if self.seed != Seed(SeedInner::None) {
             return Err(Error::NodeNotFound);
         }
         let seed = lookup.into();
-        match seed {
-            Seed::Index(child_pos) => Ok(NodeRef {
+        match seed.0 {
+            SeedInner::Index(child_pos) => Ok(NodeRef {
                 tree: tree_ref!(self.tree),
                 index: self.tree.as_ref().child_at(self.index, child_pos)?,
-                seed: Seed::None,
+                seed: Seed(SeedInner::None),
                 _hack: PhantomData,
             }),
-            Seed::Key(child_key) => Ok(NodeRef {
+            SeedInner::Key(child_key) => Ok(NodeRef {
                 tree: tree_ref!(self.tree),
                 index: self.tree.as_ref().find_child(self.index, child_key)?,
-                seed: Seed::None,
+                seed: Seed(SeedInner::None),
                 _hack: PhantomData,
             }),
-            _ => unreachable!(),
+            // This is unreachable because the public API does not expose any methods to pass a
+            // `Seed` set to `SeedInner::None`.
+            _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
 }
@@ -606,19 +604,19 @@ where
 /// make use of the inserted node ID.
 macro_rules! maybe_construct {
     ($self:expr) => {
-        match $self.seed {
-            Seed::None => $self.index,
-            Seed::Index(idx) => {
+        match $self.seed.0 {
+            SeedInner::None => $self.index,
+            SeedInner::Index(idx) => {
                 let index = $self.tree.as_mut().insert_child($self.index, idx)?;
                 $self.index = index;
-                $self.seed = Seed::None;
+                $self.seed = Seed(SeedInner::None);
                 index
             }
-            Seed::Key(key) => {
+            SeedInner::Key(key) => {
                 let index = $self.tree.as_mut().append_child($self.index)?;
                 $self.tree.as_mut().set_key(index, key)?;
                 $self.index = index;
-                $self.seed = Seed::None;
+                $self.seed = Seed(SeedInner::None);
                 index
             }
         }
@@ -640,7 +638,7 @@ where
         NodeRef {
             tree,
             index,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         }
     }
@@ -679,7 +677,7 @@ where
         Ok(NodeRef {
             tree: tree_ref_mut!(self.tree),
             index: parent,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -691,7 +689,7 @@ where
         Ok(NodeRef {
             tree: tree_ref_mut!(self.tree),
             index: sibling,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -703,7 +701,7 @@ where
         Ok(NodeRef {
             tree: tree_ref_mut!(self.tree),
             index: sibling,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -715,7 +713,7 @@ where
         Ok(NodeRef {
             tree: tree_ref_mut!(self.tree),
             index: child,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -727,7 +725,7 @@ where
         Ok(NodeRef {
             tree: tree_ref_mut!(self.tree),
             index: child,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -743,7 +741,7 @@ where
         Ok(NodeRef {
             tree: tree_ref_mut!(self.tree),
             index: child,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -759,7 +757,7 @@ where
         Ok(NodeRef {
             tree: tree_ref_mut!(self.tree),
             index: child,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -772,7 +770,7 @@ where
         Ok(NodeRef {
             tree: tree_ref_mut!(self.tree),
             index: sibling,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -785,7 +783,7 @@ where
         Ok(NodeRef {
             tree: tree_ref_mut!(self.tree),
             index: sibling,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -801,7 +799,7 @@ where
         Ok(NodeRef {
             tree: tree_ref_mut!(self.tree),
             index: sibling,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -817,7 +815,7 @@ where
         Ok(NodeRef {
             tree: tree_ref_mut!(self.tree),
             index: sibling,
-            seed: Seed::None,
+            seed: Seed(SeedInner::None),
             _hack: PhantomData,
         })
     }
@@ -896,7 +894,7 @@ where
     /// Empties the node and removes any children.
     #[inline(always)]
     pub fn clear(&mut self) -> Result<()> {
-        if let Seed::None = self.seed {
+        if let Seed(SeedInner::None) = self.seed {
             self.tree.as_mut().clear_node(self.index)
         } else {
             Ok(())
@@ -906,7 +904,7 @@ where
     /// Clears the node key, if it exists.
     #[inline(always)]
     pub fn clear_key(&mut self) -> Result<()> {
-        if let Seed::None = self.seed {
+        if let Seed(SeedInner::None) = self.seed {
             self.tree.as_mut().clear_key(self.index)
         } else {
             Ok(())
@@ -916,7 +914,7 @@ where
     /// Clears the node value, if it exists.
     #[inline(always)]
     pub fn clear_val(&mut self) -> Result<()> {
-        if let Seed::None = self.seed {
+        if let Seed(SeedInner::None) = self.seed {
             self.tree.as_mut().clear_val(self.index)
         } else {
             Ok(())
@@ -926,8 +924,171 @@ where
     /// Clear the node's children, if it exists and has any.
     #[inline(always)]
     pub fn clear_children(&mut self) -> Result<()> {
-        if let Seed::None = self.seed {
+        if let Seed(SeedInner::None) = self.seed {
             self.tree.as_mut().remove_children(self.index)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Insert a new node as a child of this node, returning a [`NodeRef`] to
+    /// the new node.
+    #[inline(always)]
+    pub fn insert_child<R: AsRef<Tree<'a>>>(
+        &mut self,
+        after: NodeRef<'a, 't, '_, R>,
+    ) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
+        let index = maybe_construct!(self);
+        let child_index = self.tree.as_mut().insert_child(index, after.index)?;
+        Ok(NodeRef {
+            tree: tree_ref_mut!(self.tree),
+            index: child_index,
+            seed: Seed(SeedInner::None),
+            _hack: PhantomData,
+        })
+    }
+
+    /// Insert a new node as the first child of this node, returning a
+    /// [`NodeRef`] to the new node.
+    #[inline(always)]
+    pub fn prepend_child(&mut self) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
+        let index = maybe_construct!(self);
+        let child_index = self.tree.as_mut().prepend_child(index)?;
+        Ok(NodeRef {
+            tree: tree_ref_mut!(self.tree),
+            index: child_index,
+            seed: Seed(SeedInner::None),
+            _hack: PhantomData,
+        })
+    }
+
+    /// Insert a new node as the last child of this node, returning a
+    /// [`NodeRef`] to the new node.
+    #[inline(always)]
+    pub fn append_child(&mut self) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
+        let index = maybe_construct!(self);
+        let child_index = self.tree.as_mut().append_child(index)?;
+        Ok(NodeRef {
+            tree: tree_ref_mut!(self.tree),
+            index: child_index,
+            seed: Seed(SeedInner::None),
+            _hack: PhantomData,
+        })
+    }
+
+    /// Insert a new node as a sibling of this node, returning a [`NodeRef`]
+    /// to the new node.
+    #[inline(always)]
+    pub fn insert_sibling<R: AsRef<Tree<'a>>>(
+        &mut self,
+        after: NodeRef<'a, 't, '_, R>,
+    ) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
+        let index = maybe_construct!(self);
+        let sibling_index = self.tree.as_mut().insert_sibling(index, after.index)?;
+        Ok(NodeRef {
+            tree: tree_ref_mut!(self.tree),
+            index: sibling_index,
+            seed: Seed(SeedInner::None),
+            _hack: PhantomData,
+        })
+    }
+
+    /// Insert a new node as the first sibling of this node, returning a
+    /// [`NodeRef`] to the new node.
+    #[inline(always)]
+    pub fn prepend_sibling(&mut self) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
+        let index = maybe_construct!(self);
+        let sibling_index = self.tree.as_mut().prepend_sibling(index)?;
+        Ok(NodeRef {
+            tree: tree_ref_mut!(self.tree),
+            index: sibling_index,
+            seed: Seed(SeedInner::None),
+            _hack: PhantomData,
+        })
+    }
+
+    /// Insert a new node as the last sibling of this node, returning a
+    /// [`NodeRef`] to the new node.
+    #[inline(always)]
+    pub fn append_sibling(&mut self) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
+        let index = maybe_construct!(self);
+        let sibling_index = self.tree.as_mut().append_sibling(index)?;
+        Ok(NodeRef {
+            tree: tree_ref_mut!(self.tree),
+            index: sibling_index,
+            seed: Seed(SeedInner::None),
+            _hack: PhantomData,
+        })
+    }
+
+    /// Remove the given child from this node.
+    #[inline(always)]
+    pub fn remove_child(&mut self, child: NodeRef<'a, 't, '_, T>) -> Result<()> {
+        if self.seed.0 == SeedInner::None {
+            self.tree.as_mut().remove(child.index)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Remove the child at the given index from this node.
+    #[inline(always)]
+    pub fn remove_child_at(&mut self, pos: usize) -> Result<()> {
+        if self.seed.0 == SeedInner::None && pos < self.num_children()? {
+            let child_index = self.tree.as_mut().child_at(self.index, pos)?;
+            self.tree.as_mut().remove(child_index)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Remove the child with the given key from this node.
+    #[inline(always)]
+    pub fn remove_child_with_key(&mut self, key: &str) -> Result<()> {
+        if self.seed.0 == SeedInner::None {
+            match self.tree.as_mut().find_child(self.index, key) {
+                Ok(child_index) => self.tree.as_mut().remove(child_index),
+                Err(e) => match e {
+                    Error::NodeNotFound => Ok(()),
+                    e => Err(e),
+                },
+            }
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Change the node's position within its parent.
+    #[inline(always)]
+    pub fn move_<R: AsRef<Tree<'a>>>(&mut self, after: NodeRef<'a, 't, '_, R>) -> Result<()> {
+        if self.seed.0 == SeedInner::None {
+            self.tree.as_mut().move_node(self.index, after.index)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Move the node to a different parent, which may be in a new tree.
+    #[inline(always)]
+    pub fn move_to_parent<R: AsRef<Tree<'a>>>(
+        &mut self,
+        mut parent: NodeRef<'a, 't, '_, T>,
+        after: NodeRef<'a, 't, '_, R>,
+    ) -> Result<()> {
+        if self.seed.0 == SeedInner::None && parent.seed.0 == SeedInner::None {
+            if self.tree.as_mut() == parent.tree.as_mut() {
+                self.tree
+                    .as_mut()
+                    .move_node_to_new_parent(self.index, parent.index, after.index)
+            } else {
+                parent.tree.as_mut().move_node_from_tree(
+                    self.tree.as_mut(),
+                    self.index,
+                    parent.index,
+                    after.index,
+                )?;
+                todo!("Update the parent tree")
+            }
         } else {
             Ok(())
         }
@@ -937,23 +1098,24 @@ where
     /// this node is a map) or given position (if this node is a sequence).
     ///
     /// Unlike [`get`](#method.get), this method will succeed if the node does
-    /// not exist and will retain the seed to lazy assignment. It will still
+    /// not exist and will retain the seed for lazy assignment. It will still
     /// return a `NodeNotFound` error if the current node does not exist.
     pub fn get_mut<'r, 'k2, S: Into<Seed<'k2>>>(
         &'r mut self,
         lookup: S,
     ) -> Result<NodeRef<'a, 't, 'k2, &'t mut Tree<'a>>> {
-        if self.seed != Seed::None {
+        if self.seed != Seed(SeedInner::None) {
             return Err(Error::NodeNotFound);
         }
         let seed = lookup.into();
         let tree_ref = self.tree.as_mut() as *mut Tree;
-        match seed {
-            Seed::Index(child_pos) => match self.tree.as_ref().child_at(self.index, child_pos) {
+        match seed.0 {
+            SeedInner::Index(child_pos) => match self.tree.as_ref().child_at(self.index, child_pos)
+            {
                 Ok(index) => Ok(NodeRef {
                     tree: unsafe { tree_ref.as_mut().unwrap() },
                     index,
-                    seed: Seed::None,
+                    seed: Seed(SeedInner::None),
                     _hack: PhantomData,
                 }),
                 Err(Error::NodeNotFound) => Ok(NodeRef {
@@ -964,11 +1126,12 @@ where
                 }),
                 Err(e) => Err(e),
             },
-            Seed::Key(child_key) => match self.tree.as_ref().find_child(self.index, child_key) {
+            SeedInner::Key(child_key) => match self.tree.as_ref().find_child(self.index, child_key)
+            {
                 Ok(index) => Ok(NodeRef {
                     tree: unsafe { tree_ref.as_mut().unwrap() },
                     index,
-                    seed: Seed::None,
+                    seed: Seed(SeedInner::None),
                     _hack: PhantomData,
                 }),
                 Err(Error::NodeNotFound) => Ok(NodeRef {
