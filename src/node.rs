@@ -45,7 +45,7 @@ impl<'t, T: AsRef<Tree<'t>>> PartialEq for NodeRef<'t, '_, T> {
 
 impl<'t, T> NodeRef<'t, '_, T>
 where
-    T: AsRef<Tree<'t>>,
+    T: AsRef<Tree<'t>> + 't,
 {
     pub(crate) fn new_exists<'na>(tree: T, index: usize) -> NodeRef<'t, 'na, T> {
         NodeRef {
@@ -575,42 +575,32 @@ where
 
     /// Get a [`NodeRef`] to a child of this node by its given key (if this node
     /// is a map) or given position (if this node is a sequence).
-    pub fn get<'k, S: Into<Seed<'k>>>(
-        &'t self,
+    ///
+    /// Unlike [`get_mut`](#method.get_mut), this method will return a
+    /// `NodeNotFound` error if the child node does not exist. It will also
+    /// return this error if the current node does not exist.
+    pub fn get<'k2, S: Into<Seed<'k2>>>(
+        &self,
         lookup: S,
-    ) -> Result<NodeRef<'t, 'k, &'t Tree<'t>>> {
+    ) -> Result<NodeRef<'t, 'k2, &'t Tree<'t>>> {
+        if self.seed != Seed::None {
+            return Err(Error::NodeNotFound);
+        }
         let seed = lookup.into();
+        let tree_ref = self.tree.as_ref() as *const Tree<'t>;
         match seed {
-            Seed::Index(child_pos) => match self.tree.as_ref().child_at(self.index, child_pos) {
-                Ok(index) => Ok(NodeRef {
-                    tree: self.tree.as_ref(),
-                    index,
-                    seed: Seed::None,
-                    _hack: PhantomData,
-                }),
-                Err(Error::NodeNotFound) => Ok(NodeRef {
-                    tree: self.tree.as_ref(),
-                    index: self.index,
-                    seed,
-                    _hack: PhantomData,
-                }),
-                Err(e) => Err(e),
-            },
-            Seed::Key(child_key) => match self.tree.as_ref().find_child(self.index, child_key) {
-                Ok(index) => Ok(NodeRef {
-                    tree: self.tree.as_ref(),
-                    index,
-                    seed: Seed::None,
-                    _hack: PhantomData,
-                }),
-                Err(Error::NodeNotFound) => Ok(NodeRef {
-                    tree: self.tree.as_ref(),
-                    index: self.index,
-                    seed,
-                    _hack: PhantomData,
-                }),
-                Err(e) => Err(e),
-            },
+            Seed::Index(child_pos) => Ok(NodeRef {
+                tree: unsafe { tree_ref.as_ref().unwrap() },
+                index: self.tree.as_ref().child_at(self.index, child_pos)?,
+                seed: Seed::None,
+                _hack: PhantomData,
+            }),
+            Seed::Key(child_key) => Ok(NodeRef {
+                tree: unsafe { tree_ref.as_ref().unwrap() },
+                index: self.tree.as_ref().find_child(self.index, child_key)?,
+                seed: Seed::None,
+                _hack: PhantomData,
+            }),
             _ => unreachable!(),
         }
     }
@@ -645,6 +635,15 @@ impl<'t, T> NodeRef<'t, '_, T>
 where
     T: AsRef<Tree<'t>> + AsMut<Tree<'t>>,
 {
+    pub(crate) fn new_exists_mut<'na>(tree: T, index: usize) -> NodeRef<'t, 'na, T> {
+        NodeRef {
+            tree,
+            index,
+            seed: Seed::None,
+            _hack: PhantomData,
+        }
+    }
+
     /// Get a mutable reference to the tree the node belongs to.
     #[inline(always)]
     pub fn tree_mut(&'t mut self) -> &mut Tree<'t> {
@@ -908,6 +907,60 @@ where
             self.tree.as_mut().clear_val(self.index)
         } else {
             Ok(())
+        }
+    }
+
+    /// Get a mutable [`NodeRef`] to a child of this node by its given key (if
+    /// this node is a map) or given position (if this node is a sequence).
+    ///
+    /// Unlike [`get`](#method.get), this method will succeed if the node does
+    /// not exist and will retain the seed to lazy assignment. It will still
+    /// return a `NodeNotFound` error if the current node does not exist.
+    pub fn get_mut<'r1, 'r2, 'k2, S: Into<Seed<'k2>>>(
+        &'r1 mut self,
+        lookup: S,
+    ) -> Result<NodeRef<'t, 'k2, &'r1 mut Tree<'t>>>
+    where
+        't: 'r1 + 'r2,
+        'r1: 'r2,
+    {
+        if self.seed != Seed::None {
+            return Err(Error::NodeNotFound);
+        }
+        let seed = lookup.into();
+        let tree_ref = self.tree.as_mut() as *mut Tree;
+        match seed {
+            Seed::Index(child_pos) => match self.tree.as_ref().child_at(self.index, child_pos) {
+                Ok(index) => Ok(NodeRef {
+                    tree: unsafe { tree_ref.as_mut().unwrap() },
+                    index,
+                    seed: Seed::None,
+                    _hack: PhantomData,
+                }),
+                Err(Error::NodeNotFound) => Ok(NodeRef {
+                    tree: unsafe { tree_ref.as_mut().unwrap() },
+                    index: self.index,
+                    seed,
+                    _hack: PhantomData,
+                }),
+                Err(e) => Err(e),
+            },
+            Seed::Key(child_key) => match self.tree.as_ref().find_child(self.index, child_key) {
+                Ok(index) => Ok(NodeRef {
+                    tree: unsafe { tree_ref.as_mut().unwrap() },
+                    index,
+                    seed: Seed::None,
+                    _hack: PhantomData,
+                }),
+                Err(Error::NodeNotFound) => Ok(NodeRef {
+                    tree: unsafe { tree_ref.as_mut().unwrap() },
+                    index: self.index,
+                    seed,
+                    _hack: PhantomData,
+                }),
+                Err(e) => Err(e),
+            },
+            _ => unreachable!(),
         }
     }
 }

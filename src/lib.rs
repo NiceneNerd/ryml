@@ -68,6 +68,15 @@ where
     }
 }
 
+impl<'s, 't> AsMut<Tree<'s>> for Tree<'s>
+where
+    's: 't,
+{
+    fn as_mut(&mut self) -> &mut Tree<'s> {
+        self
+    }
+}
+
 impl Eq for Tree<'_> {}
 
 impl core::fmt::Debug for Tree<'_> {
@@ -170,13 +179,13 @@ impl<'a> Tree<'a> {
 
     /// Get a mutable [`NodeRef`] to the root node.
     #[inline(always)]
-    pub fn root_ref_mut(&'a mut self) -> Result<NodeRef<'a, '_, &Self>> {
-        Ok(NodeRef::new_exists(self, self.root_id()?))
+    pub fn root_ref_mut(&'a mut self) -> Result<NodeRef<'a, '_, &mut Tree<'a>>> {
+        Ok(NodeRef::new_exists_mut(self, self.root_id()?))
     }
 
     /// Get a [`NodeRef`] to the given node, if it exists.
     #[inline(always)]
-    pub fn get(&self, index: usize) -> Result<NodeRef<'a, '_, &Self>> {
+    pub fn get<'r>(&'a self, index: usize) -> Result<NodeRef<'a, '_, &'r Self>> {
         if index < self.inner.size() {
             Ok(NodeRef::new_exists(self, index))
         } else {
@@ -186,7 +195,7 @@ impl<'a> Tree<'a> {
 
     /// Get a mutable [`NodeRef`] to the given node, if it exists.
     #[inline(always)]
-    pub fn get_mut(&mut self, index: usize) -> Result<NodeRef<'a, '_, &mut Self>> {
+    pub fn get_mut<'r>(&'a mut self, index: usize) -> Result<NodeRef<'a, '_, &'r mut Self>> {
         if index < self.inner.size() {
             Ok(NodeRef::new_exists(self, index))
         } else {
@@ -1169,8 +1178,32 @@ mod tests {
 
     #[test]
     fn node_ref() {
-        let tree = Tree::parse(SRC).unwrap();
-        let root_ref = tree.root_ref().unwrap();
-        println!("{}", root_ref.data().unwrap().value.tag)
+        let mut tree = Tree::parse(SRC).unwrap();
+        {
+            let root_ref = tree.root_ref().unwrap();
+            assert_eq!("!io", root_ref.data().unwrap().value.tag);
+            let demos = root_ref
+                .get("param_root")
+                .unwrap()
+                .get("objects")
+                .unwrap()
+                .get("DemoAIActionIdx")
+                .unwrap();
+            assert_eq!(demos.num_children().unwrap(), 6);
+        }
+        {
+            let mut root_ref_mut = tree.root_ref_mut().unwrap();
+            let mut new_demo = root_ref_mut
+                .get_mut("param_root")
+                .unwrap()
+                .get_mut("objects")
+                .unwrap()
+                .get_mut("DemoAIActionIdx")
+                .unwrap()
+                .get_mut(6)
+                .unwrap();
+            new_demo.set_val("888").unwrap();
+        }
+        dbg!(tree.emit().unwrap());
     }
 }
