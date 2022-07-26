@@ -1179,32 +1179,48 @@ mod tests {
     #[test]
     fn node_ref() {
         let mut tree = Tree::parse(SRC).unwrap();
-        // {
-        let root_ref = tree.root_ref().unwrap();
-        assert_eq!("!io", root_ref.data().unwrap().value.tag);
-        let demos = root_ref
-            .get("param_root")
-            .unwrap()
-            .get("objects")
-            .unwrap()
-            .get("DemoAIActionIdx")
-            .unwrap();
-        assert_eq!(demos.num_children().unwrap(), 6);
-        // }
-        // {
-        let mut root_ref_mut = tree.root_ref_mut().unwrap();
-        let mut new_demo = root_ref_mut
-            .get_mut("param_root")
-            .unwrap()
-            .get_mut("objects")
-            .unwrap()
-            .get_mut("DemoAIActionIdx")
-            .unwrap()
-            .get_mut(6)
-            .unwrap();
-        new_demo.set_key("new_key").unwrap();
-        new_demo.set_val("888").unwrap();
-        // }
-        dbg!(tree.emit().unwrap());
+        {
+            let root_ref = tree.root_ref().unwrap();
+            dbg!(root_ref.data().unwrap());
+            assert_eq!("!io", root_ref.data().unwrap().value.tag);
+            let demos = root_ref
+                .get("param_root")
+                .unwrap()
+                .get("objects")
+                .unwrap()
+                .get("DemoAIActionIdx")
+                .unwrap();
+            assert_eq!(demos.num_children().unwrap(), 6);
+        }
+        {
+            let mut root_ref_mut = tree.root_ref_mut().unwrap();
+            let mut new_demo = root_ref_mut
+                .get_mut("param_root")
+                .unwrap()
+                .get_mut("objects")
+                .unwrap()
+                .get_mut("DemoAIActionIdx")
+                .unwrap()
+                .get_mut("FakeDemo")
+                .unwrap();
+            new_demo.set_val("888").unwrap();
+        }
+        assert_eq!(
+            tree.root_ref()
+                .unwrap()
+                .get("param_root")
+                .unwrap()
+                .get("objects")
+                .unwrap()
+                .get("DemoAIActionIdx")
+                .unwrap()
+                .get("FakeDemo")
+                .unwrap()
+                .data()
+                .unwrap()
+                .value
+                .scalar,
+            "888"
+        );
     }
 }

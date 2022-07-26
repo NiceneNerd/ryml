@@ -83,6 +83,7 @@ unsafe impl cxx::ExternType for Substr {
 /// not a serious performance concern, it can be safer to use the getters
 /// instead, which return [`Option`]s.
 #[repr(C)]
+#[derive(Debug)]
 pub struct NodeData<'t> {
     /// The node type flags.
     pub node_type: NodeType,

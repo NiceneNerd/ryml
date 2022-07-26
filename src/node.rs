@@ -923,6 +923,16 @@ where
         }
     }
 
+    /// Clear the node's children, if it exists and has any.
+    #[inline(always)]
+    pub fn clear_children(&mut self) -> Result<()> {
+        if let Seed::None = self.seed {
+            self.tree.as_mut().remove_children(self.index)
+        } else {
+            Ok(())
+        }
+    }
+
     /// Get a mutable [`NodeRef`] to a child of this node by its given key (if
     /// this node is a map) or given position (if this node is a sequence).
     ///
