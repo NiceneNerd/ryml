@@ -162,10 +162,36 @@ impl<'a> Tree<'a> {
         Ok(self.inner.root_id()?)
     }
 
-    /// Get a reference to the root node.
+    /// Get a [`NodeRef`] to the root node.
     #[inline(always)]
     pub fn root_ref(&'a self) -> Result<NodeRef<'a, '_, &Self>> {
         Ok(NodeRef::new_exists(self, self.root_id()?))
+    }
+
+    /// Get a mutable [`NodeRef`] to the root node.
+    #[inline(always)]
+    pub fn root_ref_mut(&'a mut self) -> Result<NodeRef<'a, '_, &Self>> {
+        Ok(NodeRef::new_exists(self, self.root_id()?))
+    }
+
+    /// Get a [`NodeRef`] to the given node, if it exists.
+    #[inline(always)]
+    pub fn get(&self, index: usize) -> Result<NodeRef<'a, '_, &Self>> {
+        if index < self.inner.size() {
+            Ok(NodeRef::new_exists(self, index))
+        } else {
+            Err(Error::NodeNotFound)
+        }
+    }
+
+    /// Get a mutable [`NodeRef`] to the given node, if it exists.
+    #[inline(always)]
+    pub fn get_mut(&mut self, index: usize) -> Result<NodeRef<'a, '_, &mut Self>> {
+        if index < self.inner.size() {
+            Ok(NodeRef::new_exists(self, index))
+        } else {
+            Err(Error::NodeNotFound)
+        }
     }
 
     /// Get the total number of nodes.
@@ -511,29 +537,33 @@ impl<'a> Tree<'a> {
     pub fn has_parent(&self, node: usize) -> Result<bool> {
         Ok(self.inner.has_parent(node)?)
     }
+
     /// If the given node exists, returns true if it has a child.
     #[inline(always)]
     pub fn has_child(&self, node: usize, key: &str) -> Result<bool> {
         Ok(self.inner.has_child(node, key.into())?)
     }
+
     /// If the given node exists, returns true if it has children.
     #[inline(always)]
     pub fn has_children(&self, node: usize) -> Result<bool> {
         Ok(self.inner.has_children(node)?)
     }
+
     /// If the given node exists, returns true if it has a sibling.
     #[inline(always)]
     pub fn has_sibling(&self, node: usize, key: &str) -> Result<bool> {
         Ok(self.inner.has_sibling(node, key.into())?)
     }
+
     /// If the given node exists, returns true if it has siblings.
+    ///
+    /// **Note**: This corresponds to `has_other_siblings()` in the C++ API, as
+    /// the plain `has_siblings()` function always returns true by counting the
+    /// node itself, which seems rather pointless and is not the obvious meaning
+    /// of a method by the name.
     #[inline(always)]
     pub fn has_siblings(&self, node: usize) -> Result<bool> {
-        Ok(self.inner.has_siblings(node)?)
-    }
-    /// If the given node exists, returns true if it has other siblings.
-    #[inline(always)]
-    pub fn has_other_siblings(&self, node: usize) -> Result<bool> {
         Ok(self.inner.has_other_siblings(node)?)
     }
 
@@ -589,7 +619,7 @@ impl<'a> Tree<'a> {
     /// If the given node exists and has a child at the given
     /// position, returns the index to the child node.
     #[inline(always)]
-    pub fn child(&self, node: usize, pos: usize) -> Result<usize> {
+    pub fn child_at(&self, node: usize, pos: usize) -> Result<usize> {
         not_none!(self.inner.child(node, pos)?)
     }
 
@@ -637,7 +667,7 @@ impl<'a> Tree<'a> {
     /// If the given node exists and has a sibling as the given
     /// position, returns the index to the sibling node.
     #[inline(always)]
-    pub fn sibling(&self, node: usize, pos: usize) -> Result<usize> {
+    pub fn sibling_at(&self, node: usize, pos: usize) -> Result<usize> {
         not_none!(self.inner.sibling(node, pos)?)
     }
 
@@ -899,6 +929,43 @@ impl<'a> Tree<'a> {
         Ok(self.inner.pin_mut().reorder()?)
     }
 
+    /// Change the type of a node, resetting its contents if necessary and
+    /// returning whether the change was possible.
+    #[inline(always)]
+    pub fn change_type(&mut self, node: usize, new_type: NodeType) -> Result<bool> {
+        Ok(self.inner.pin_mut().change_type(node, new_type as u64)?)
+    }
+
+    #[inline(always)]
+    fn set_flags(&mut self, node: usize, new_type: NodeType) -> Result<()> {
+        Ok(self.inner.pin_mut()._set_flags(node, new_type as u64)?)
+    }
+
+    #[inline(always)]
+    fn set_key(&mut self, node: usize, key: &str) -> Result<()> {
+        Ok(self.inner.pin_mut()._set_key(node, key.into(), 0)?)
+    }
+
+    #[inline(always)]
+    fn set_val(&mut self, node: usize, val: &str) -> Result<()> {
+        Ok(self.inner.pin_mut()._set_val(node, val.into(), 0)?)
+    }
+
+    #[inline(always)]
+    fn clear_node(&mut self, node: usize) -> Result<()> {
+        Ok(self.inner.pin_mut()._clear(node)?)
+    }
+
+    #[inline(always)]
+    fn clear_key(&mut self, node: usize) -> Result<()> {
+        Ok(self.inner.pin_mut()._clear_key(node)?)
+    }
+
+    #[inline(always)]
+    fn clear_val(&mut self, node: usize) -> Result<()> {
+        Ok(self.inner.pin_mut()._clear_val(node)?)
+    }
+
     /// Recursively duplicate the given node, returning the index to the
     /// duplicate.
     #[inline(always)]
@@ -1069,7 +1136,7 @@ mod tests {
         assert_eq!("!list", tree.val_tag(actions)?);
         let action_lists = tree.find_child(actions, "lists")?;
         for i in 0..tree.num_children(action_lists)? {
-            let action = tree.child(action_lists, i)?;
+            let action = tree.child_at(action_lists, i)?;
             assert_eq!(tree.key(action)?, format!("Action_{}", i));
         }
         Ok(())
@@ -1083,7 +1150,7 @@ mod tests {
         assert!(tree.find_child(root, "fish").is_err());
         assert!(tree.parent(root).is_err());
         assert!(tree.last_child(2).is_err());
-        tree.child(888, 4444).unwrap();
+        tree.child_at(888, 4444).unwrap();
         Ok(())
     }
 

@@ -378,7 +378,7 @@ pub(crate) mod ffi {
         fn has_child(self: &Tree, node: usize, key: csubstr) -> Result<bool>;
         fn has_children(self: &Tree, node: usize) -> Result<bool>;
         fn has_sibling(self: &Tree, node: usize, key: csubstr) -> Result<bool>;
-        fn has_siblings(self: &Tree, node: usize) -> Result<bool>;
+        // fn has_siblings(self: &Tree, node: usize) -> Result<bool>;
         fn has_other_siblings(self: &Tree, node: usize) -> Result<bool>;
 
         fn root_id(self: &Tree) -> Result<usize>;
@@ -432,10 +432,14 @@ pub(crate) mod ffi {
         fn set_key_ref(self: Pin<&mut Tree>, node: usize, refr: csubstr) -> Result<()>;
         fn set_val_ref(self: Pin<&mut Tree>, node: usize, refr: csubstr) -> Result<()>;
 
+        fn _set_flags(self: Pin<&mut Tree>, node: usize, flags: u64) -> Result<()>;
         fn _set_key(self: Pin<&mut Tree>, node: usize, key: csubstr, more_flags: u64)
             -> Result<()>;
         fn _set_val(self: Pin<&mut Tree>, node: usize, val: csubstr, more_flags: u64)
             -> Result<()>;
+        fn _clear(self: Pin<&mut Tree>, node: usize) -> Result<()>;
+        fn _clear_key(self: Pin<&mut Tree>, node: usize) -> Result<()>;
+        fn _clear_val(self: Pin<&mut Tree>, node: usize) -> Result<()>;
 
         fn set_val_tag(self: Pin<&mut Tree>, node: usize, tag: csubstr) -> Result<()>;
         fn rem_key_anchor(self: Pin<&mut Tree>, node: usize) -> Result<()>;
@@ -457,6 +461,8 @@ pub(crate) mod ffi {
         fn remove(self: Pin<&mut Tree>, node: usize) -> Result<()>;
         /// remove all the node's children, but keep the node itself
         fn remove_children(self: Pin<&mut Tree>, node: usize) -> Result<()>;
+
+        fn change_type(self: Pin<&mut Tree>, node: usize, new_type: u64) -> Result<bool>;
 
         fn reorder(self: Pin<&mut Tree>) -> Result<()>;
 
