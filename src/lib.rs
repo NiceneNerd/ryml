@@ -1103,7 +1103,8 @@ impl<'a> Tree<'a> {
         )?)
     }
 
-    /// Change the node's parent (in a different tree) and position.
+    /// Change the node's parent (in a different tree) and position, returning
+    /// the new index.
     #[inline(always)]
     pub fn move_node_from_tree(
         &mut self,
@@ -1111,15 +1112,14 @@ impl<'a> Tree<'a> {
         node: usize,
         new_parent: usize,
         after: usize,
-    ) -> Result<()> {
-        inner::ffi::move_node_from_tree(
+    ) -> Result<usize> {
+        Ok(inner::ffi::move_node_from_tree(
             self.inner.pin_mut(),
             tree.inner.pin_mut(),
             node,
             new_parent,
             after,
-        )?;
-        Ok(())
+        )?)
     }
 }
 
@@ -1159,7 +1159,7 @@ mod tests {
         assert!(tree.find_child(root, "fish").is_err());
         assert!(tree.parent(root).is_err());
         assert!(tree.last_child(2).is_err());
-        tree.child_at(888, 4444).unwrap();
+        tree.child_at(888, 4444).expect_err("child_at should fail");
         Ok(())
     }
 
@@ -1222,5 +1222,21 @@ mod tests {
                 .scalar,
             "888"
         );
+        for node in tree
+            .root_ref()
+            .unwrap()
+            .get("param_root")
+            .unwrap()
+            .get("lists")
+            .unwrap()
+            .get("Action")
+            .unwrap()
+            .get("lists")
+            .unwrap()
+            .iter()
+            .unwrap()
+        {
+            println!("{}", node.data().unwrap().key.scalar);
+        }
     }
 }
