@@ -74,16 +74,63 @@ unsafe impl cxx::ExternType for Substr {
     type Kind = cxx::kind::Trivial;
 }
 
+/// An entry in the [`Tree`](super::Tree) representing all the data for a YAML
+/// node.
+///
+/// Note that the relational indicies stored here (e.g.
+/// [`first_child`](#structfield.first_child)) may refer to no existing node, in
+/// which case the value will be the constant [`NONE`](super::NONE). Where it is
+/// not a serious performance concern, it can be safer to use the getters
+/// instead, which return [`Option`]s.
 #[repr(C)]
 pub struct NodeData<'t> {
+    /// The node type flags.
     pub node_type: NodeType,
+    /// The node key.
     pub key: NodeScalar<'t>,
+    /// The node value.
     pub value: NodeScalar<'t>,
+    /// The index to the parent node.
     pub parent: usize,
+    /// The index to the first child node.
     pub first_child: usize,
+    /// The index to the last child node.
     pub last_child: usize,
+    /// The index to the next sibling node.
     pub next_sibling: usize,
+    /// The index to the previous sibling node.
     pub prev_sibling: usize,
+}
+
+impl NodeData<'_> {
+    /// Get the index to the parent node, if one exists.
+    #[inline(always)]
+    pub fn parent(&self) -> Option<usize> {
+        (self.parent != super::NONE).then(|| self.parent)
+    }
+
+    /// Get the index to the first child node, if one exists.
+    #[inline(always)]
+    pub fn first_child(&self) -> Option<usize> {
+        (self.first_child != super::NONE).then(|| self.first_child)
+    }
+    /// Get the index to the last_child node, if one exists.
+    #[inline(always)]
+    pub fn last_child(&self) -> Option<usize> {
+        (self.last_child != super::NONE).then(|| self.last_child)
+    }
+
+    /// Get the index to the next sibling node, if one exists.
+    #[inline(always)]
+    pub fn next_sibling(&self) -> Option<usize> {
+        (self.next_sibling != super::NONE).then(|| self.next_sibling)
+    }
+
+    /// Get the index to the previous sibling node, if one exists.
+    #[inline(always)]
+    pub fn prev_sibling(&self) -> Option<usize> {
+        (self.prev_sibling != super::NONE).then(|| self.prev_sibling)
+    }
 }
 
 unsafe impl cxx::ExternType for NodeData<'_> {
@@ -129,7 +176,10 @@ unsafe impl cxx::ExternType for NodeType {
     type Kind = cxx::kind::Trivial;
 }
 
-/// A node in a YAML document. Note that, for FFI simplicity, each value allows
+/// A view of scalar data for a node, containing the tag, anchor, and scalar
+/// value.
+///
+/// Note that, for FFI simplicity, each value allows
 /// blank string slices instead of being optional.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

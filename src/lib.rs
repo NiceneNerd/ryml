@@ -1,14 +1,15 @@
 //! TODO
 #![deny(missing_docs)]
 #![feature(core_ffi_c)]
-use node::NodeRef;
 use std::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
 mod inner;
 mod node;
-pub use inner::{NodeScalar, NodeType};
+pub use inner::{NodeData, NodeScalar, NodeType};
+pub use node::NodeRef;
 
-const NONE: usize = usize::MAX;
+/// Represents the pseudo-index of a node that does not exist.
+pub const NONE: usize = usize::MAX;
 
 macro_rules! not_none {
     ($result:expr) => {
@@ -164,12 +165,7 @@ impl<'a> Tree<'a> {
     /// Get a reference to the root node.
     #[inline(always)]
     pub fn root_ref(&'a self) -> Result<NodeRef<'a, '_, &Self>> {
-        Ok(NodeRef {
-            tree: self,
-            index: self.root_id()?,
-            seed: node::Seed::None,
-            _compiler_hack: PhantomData,
-        })
+        Ok(NodeRef::new_exists(self, self.root_id()?))
     }
 
     /// Get the total number of nodes.
@@ -1108,6 +1104,6 @@ mod tests {
     fn node_ref() {
         let tree = Tree::parse(SRC).unwrap();
         let root_ref = tree.root_ref().unwrap();
-        println!("{}", root_ref.get().unwrap().value.tag)
+        println!("{}", root_ref.data().unwrap().value.tag)
     }
 }
