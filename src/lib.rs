@@ -128,7 +128,7 @@ impl<'a> Tree<'a> {
     /// Emit YAML to an owned string.
     #[inline(always)]
     pub fn emit(&self) -> Result<String> {
-        let mut buf = vec![0; self.inner.capacity()];
+        let mut buf = vec![0; self.inner.capacity() * 32 + self.inner.arena_capacity()];
         let written = inner::ffi::emit(
             self.inner.as_ref().unwrap(),
             inner::Substr {
@@ -173,19 +173,19 @@ impl<'a> Tree<'a> {
 
     /// Get a [`NodeRef`] to the root node.
     #[inline(always)]
-    pub fn root_ref(&'a self) -> Result<NodeRef<'a, '_, &Self>> {
+    pub fn root_ref<'t>(&'t self) -> Result<NodeRef<'a, 't, '_, &'t Self>> {
         Ok(NodeRef::new_exists(self, self.root_id()?))
     }
 
     /// Get a mutable [`NodeRef`] to the root node.
     #[inline(always)]
-    pub fn root_ref_mut(&'a mut self) -> Result<NodeRef<'a, '_, &mut Tree<'a>>> {
+    pub fn root_ref_mut<'t>(&'t mut self) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
         Ok(NodeRef::new_exists_mut(self, self.root_id()?))
     }
 
     /// Get a [`NodeRef`] to the given node, if it exists.
     #[inline(always)]
-    pub fn get<'r>(&'a self, index: usize) -> Result<NodeRef<'a, '_, &'r Self>> {
+    pub fn get<'t>(&'t self, index: usize) -> Result<NodeRef<'a, 't, '_, &'t Self>> {
         if index < self.inner.size() {
             Ok(NodeRef::new_exists(self, index))
         } else {
@@ -195,7 +195,7 @@ impl<'a> Tree<'a> {
 
     /// Get a mutable [`NodeRef`] to the given node, if it exists.
     #[inline(always)]
-    pub fn get_mut<'r>(&'a mut self, index: usize) -> Result<NodeRef<'a, '_, &'r mut Self>> {
+    pub fn get_mut<'t>(&'t mut self, index: usize) -> Result<NodeRef<'a, 't, '_, &'t mut Self>> {
         if index < self.inner.size() {
             Ok(NodeRef::new_exists(self, index))
         } else {
@@ -1179,31 +1179,32 @@ mod tests {
     #[test]
     fn node_ref() {
         let mut tree = Tree::parse(SRC).unwrap();
-        {
-            let root_ref = tree.root_ref().unwrap();
-            assert_eq!("!io", root_ref.data().unwrap().value.tag);
-            let demos = root_ref
-                .get("param_root")
-                .unwrap()
-                .get("objects")
-                .unwrap()
-                .get("DemoAIActionIdx")
-                .unwrap();
-            assert_eq!(demos.num_children().unwrap(), 6);
-        }
-        {
-            let mut root_ref_mut = tree.root_ref_mut().unwrap();
-            let mut new_demo = root_ref_mut
-                .get_mut("param_root")
-                .unwrap()
-                .get_mut("objects")
-                .unwrap()
-                .get_mut("DemoAIActionIdx")
-                .unwrap()
-                .get_mut(6)
-                .unwrap();
-            new_demo.set_val("888").unwrap();
-        }
+        // {
+        let root_ref = tree.root_ref().unwrap();
+        assert_eq!("!io", root_ref.data().unwrap().value.tag);
+        let demos = root_ref
+            .get("param_root")
+            .unwrap()
+            .get("objects")
+            .unwrap()
+            .get("DemoAIActionIdx")
+            .unwrap();
+        assert_eq!(demos.num_children().unwrap(), 6);
+        // }
+        // {
+        let mut root_ref_mut = tree.root_ref_mut().unwrap();
+        let mut new_demo = root_ref_mut
+            .get_mut("param_root")
+            .unwrap()
+            .get_mut("objects")
+            .unwrap()
+            .get_mut("DemoAIActionIdx")
+            .unwrap()
+            .get_mut(6)
+            .unwrap();
+        new_demo.set_key("new_key").unwrap();
+        new_demo.set_val("888").unwrap();
+        // }
         dbg!(tree.emit().unwrap());
     }
 }

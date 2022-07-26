@@ -27,49 +27,40 @@ impl<'k> From<&'k str> for Seed<'k> {
 
 /// A reference to a node in the tree.
 #[derive(Debug, Clone)]
-pub struct NodeRef<'t, 'k, T>
+pub struct NodeRef<'a, 't, 'k, T>
 where
-    T: AsRef<Tree<'t>>,
+    T: AsRef<Tree<'a>> + 't,
+    'a: 't,
 {
     tree: T,
     index: usize,
     seed: Seed<'k>,
-    _hack: PhantomData<&'t ()>,
+    _hack: PhantomData<(&'t (), &'a ())>,
 }
 
-impl<'t, T: AsRef<Tree<'t>>> PartialEq for NodeRef<'t, '_, T> {
+impl<'a, 't, T: AsRef<Tree<'a>> + 't> PartialEq for NodeRef<'a, 't, '_, T> {
     fn eq(&self, other: &Self) -> bool {
         self.tree.as_ref() == other.tree.as_ref() && self.index == other.index
     }
 }
 
-impl<'t, T> NodeRef<'t, '_, T>
+macro_rules! tree_ref {
+    ($tree:expr) => {{
+        let tree_ref = $tree.as_ref() as *const Tree<'_>;
+        unsafe { tree_ref.as_ref().unwrap() }
+    }};
+}
+
+impl<'a, 't, T> NodeRef<'a, 't, '_, T>
 where
-    T: AsRef<Tree<'t>> + 't,
+    T: AsRef<Tree<'a>> + 't,
+    'a: 't,
 {
-    pub(crate) fn new_exists<'na>(tree: T, index: usize) -> NodeRef<'t, 'na, T> {
+    pub(crate) fn new_exists<'na>(tree: T, index: usize) -> NodeRef<'a, 't, 'na, T> {
         NodeRef {
             tree,
             index,
             seed: Seed::None,
-            _hack: PhantomData,
-        }
-    }
-
-    pub(crate) fn new_with_key(tree: T, key: &'_ str) -> NodeRef<'t, '_, T> {
-        NodeRef {
-            tree,
-            index: NONE,
-            seed: Seed::Key(key),
-            _hack: PhantomData,
-        }
-    }
-
-    pub(crate) fn new_with_index<'na>(tree: T, index: usize) -> NodeRef<'t, 'na, T> {
-        NodeRef {
-            tree,
-            index: NONE,
-            seed: Seed::Index(index),
             _hack: PhantomData,
         }
     }
@@ -427,10 +418,14 @@ where
 
     /// Returns a [`NodeRef`] to the parent node, if it exists.
     #[inline(always)]
-    pub fn parent(&'t self) -> Result<NodeRef<'t, '_, &'t Tree<'t>>> {
+    pub fn parent<'r1>(&'r1 self) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>>
+    where
+        't: 'r1,
+    {
         let parent = self.tree.as_ref().parent(self.index)?;
+        let tree_ref = self.tree.as_ref() as *const Tree<'a>;
         Ok(NodeRef {
-            tree: self.tree.as_ref(),
+            tree: unsafe { tree_ref.as_ref().unwrap() },
             index: parent,
             seed: Seed::None,
             _hack: PhantomData,
@@ -439,10 +434,10 @@ where
 
     /// Returns a [`NodeRef`] to the previous sibling, if it exists.
     #[inline(always)]
-    pub fn prev_sibling(&'t self) -> Result<NodeRef<'t, '_, &'t Tree<'t>>> {
+    pub fn prev_sibling<'r>(&'r self) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>> {
         let sibling = self.tree.as_ref().prev_sibling(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_ref(),
+            tree: tree_ref!(self.tree),
             index: sibling,
             seed: Seed::None,
             _hack: PhantomData,
@@ -451,10 +446,10 @@ where
 
     /// Returns a [`NodeRef`] to the next sibling, if it exists.
     #[inline(always)]
-    pub fn next_sibling(&'t self) -> Result<NodeRef<'t, '_, &'t Tree<'t>>> {
+    pub fn next_sibling<'r>(&'r self) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>> {
         let sibling = self.tree.as_ref().next_sibling(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_ref(),
+            tree: tree_ref!(self.tree),
             index: sibling,
             seed: Seed::None,
             _hack: PhantomData,
@@ -469,16 +464,16 @@ where
 
     /// Get the position of the child node in this node's children.
     #[inline(always)]
-    pub fn child_pos(&self, child: &NodeRef<'t, '_, T>) -> Result<usize> {
+    pub fn child_pos(&self, child: &NodeRef<'a, 't, '_, T>) -> Result<usize> {
         self.tree.as_ref().child_pos(self.index, child.index)
     }
 
     /// Get a [`NodeRef`] to the first child of this node, if it exists.
     #[inline(always)]
-    pub fn first_child(&'t self) -> Result<NodeRef<'t, '_, &'t Tree<'t>>> {
+    pub fn first_child<'r>(&'r self) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>> {
         let child = self.tree.as_ref().first_child(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_ref(),
+            tree: tree_ref!(self.tree),
             index: child,
             seed: Seed::None,
             _hack: PhantomData,
@@ -487,10 +482,10 @@ where
 
     /// Get a [`NodeRef`] to the last child of this node, if it exists.
     #[inline(always)]
-    pub fn last_child(&'t self) -> Result<NodeRef<'t, '_, &'t Tree<'t>>> {
+    pub fn last_child<'r>(&'r self) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>> {
         let child = self.tree.as_ref().last_child(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_ref(),
+            tree: tree_ref!(self.tree),
             index: child,
             seed: Seed::None,
             _hack: PhantomData,
@@ -500,10 +495,10 @@ where
     /// Get a [`NodeRef`] to the child of this node at the given position, if
     /// it exists.
     #[inline(always)]
-    pub fn child_at(&'t self, pos: usize) -> Result<NodeRef<'t, '_, &'t Tree<'t>>> {
+    pub fn child_at<'r>(&'r self, pos: usize) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>> {
         let child = self.tree.as_ref().child_at(self.index, pos)?;
         Ok(NodeRef {
-            tree: self.tree.as_ref(),
+            tree: tree_ref!(self.tree),
             index: child,
             seed: Seed::None,
             _hack: PhantomData,
@@ -513,10 +508,10 @@ where
     /// Get a [`NodeRef`] to the child of this node with the given key, if it
     /// exists.
     #[inline(always)]
-    pub fn find_child(&'t self, key: &str) -> Result<NodeRef<'t, '_, &'t Tree<'t>>> {
+    pub fn find_child<'r>(&'r self, key: &str) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>> {
         let child = self.tree.as_ref().find_child(self.index, key)?;
         Ok(NodeRef {
-            tree: self.tree.as_ref(),
+            tree: tree_ref!(self.tree),
             index: child,
             seed: Seed::None,
             _hack: PhantomData,
@@ -525,10 +520,10 @@ where
 
     /// Get a [`NodeRef`] to the first sibling of this node, if it exists.
     #[inline(always)]
-    pub fn first_sibling(&'t self) -> Result<NodeRef<'t, '_, &'t Tree<'t>>> {
+    pub fn first_sibling<'r>(&'r self) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>> {
         let sibling = self.tree.as_ref().first_sibling(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_ref(),
+            tree: tree_ref!(self.tree),
             index: sibling,
             seed: Seed::None,
             _hack: PhantomData,
@@ -537,10 +532,10 @@ where
 
     /// Get a [`NodeRef`] to the last sibling of this node, if it exists.
     #[inline(always)]
-    pub fn last_sibling(&'t self) -> Result<NodeRef<'t, '_, &'t Tree<'t>>> {
+    pub fn last_sibling<'r>(&'r self) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>> {
         let sibling = self.tree.as_ref().last_sibling(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_ref(),
+            tree: tree_ref!(self.tree),
             index: sibling,
             seed: Seed::None,
             _hack: PhantomData,
@@ -550,10 +545,10 @@ where
     /// Get a [`NodeRef`] to the sibling of this node at the given position, if
     /// it exists.
     #[inline(always)]
-    pub fn sibling_at(&'t self, pos: usize) -> Result<NodeRef<'t, '_, &'t Tree<'t>>> {
+    pub fn sibling_at<'r>(&'r self, pos: usize) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>> {
         let sibling = self.tree.as_ref().sibling_at(self.index, pos)?;
         Ok(NodeRef {
-            tree: self.tree.as_ref(),
+            tree: tree_ref!(self.tree),
             index: sibling,
             seed: Seed::None,
             _hack: PhantomData,
@@ -563,10 +558,10 @@ where
     /// Get a [`NodeRef`] to the sibling of this node with the given key, if it
     /// exists.
     #[inline(always)]
-    pub fn find_sibling(&'t self, key: &str) -> Result<NodeRef<'t, '_, &'t Tree<'t>>> {
+    pub fn find_sibling<'r>(&'r self, key: &str) -> Result<NodeRef<'a, 't, '_, &'t Tree<'a>>> {
         let sibling = self.tree.as_ref().find_sibling(self.index, key)?;
         Ok(NodeRef {
-            tree: self.tree.as_ref(),
+            tree: tree_ref!(self.tree),
             index: sibling,
             seed: Seed::None,
             _hack: PhantomData,
@@ -579,24 +574,23 @@ where
     /// Unlike [`get_mut`](#method.get_mut), this method will return a
     /// `NodeNotFound` error if the child node does not exist. It will also
     /// return this error if the current node does not exist.
-    pub fn get<'k2, S: Into<Seed<'k2>>>(
-        &self,
+    pub fn get<'r, 'k2, S: Into<Seed<'k2>>>(
+        &'r self,
         lookup: S,
-    ) -> Result<NodeRef<'t, 'k2, &'t Tree<'t>>> {
+    ) -> Result<NodeRef<'a, 't, 'k2, &'t Tree<'a>>> {
         if self.seed != Seed::None {
             return Err(Error::NodeNotFound);
         }
         let seed = lookup.into();
-        let tree_ref = self.tree.as_ref() as *const Tree<'t>;
         match seed {
             Seed::Index(child_pos) => Ok(NodeRef {
-                tree: unsafe { tree_ref.as_ref().unwrap() },
+                tree: tree_ref!(self.tree),
                 index: self.tree.as_ref().child_at(self.index, child_pos)?,
                 seed: Seed::None,
                 _hack: PhantomData,
             }),
             Seed::Key(child_key) => Ok(NodeRef {
-                tree: unsafe { tree_ref.as_ref().unwrap() },
+                tree: tree_ref!(self.tree),
                 index: self.tree.as_ref().find_child(self.index, child_key)?,
                 seed: Seed::None,
                 _hack: PhantomData,
@@ -631,11 +625,18 @@ macro_rules! maybe_construct {
     };
 }
 
-impl<'t, T> NodeRef<'t, '_, T>
+macro_rules! tree_ref_mut {
+    ($tree:expr) => {{
+        let tree_ref = $tree.as_mut() as *mut Tree<'_>;
+        unsafe { tree_ref.as_mut().unwrap() }
+    }};
+}
+
+impl<'a, 't, T> NodeRef<'a, 't, '_, T>
 where
-    T: AsRef<Tree<'t>> + AsMut<Tree<'t>>,
+    T: AsRef<Tree<'a>> + AsMut<Tree<'a>> + 't,
 {
-    pub(crate) fn new_exists_mut<'na>(tree: T, index: usize) -> NodeRef<'t, 'na, T> {
+    pub(crate) fn new_exists_mut<'na>(tree: T, index: usize) -> NodeRef<'a, 't, 'na, T> {
         NodeRef {
             tree,
             index,
@@ -646,7 +647,7 @@ where
 
     /// Get a mutable reference to the tree the node belongs to.
     #[inline(always)]
-    pub fn tree_mut(&'t mut self) -> &mut Tree<'t> {
+    pub fn tree_mut(&'t mut self) -> &mut Tree<'a> {
         self.tree.as_mut()
     }
 
@@ -673,10 +674,10 @@ where
 
     /// Returns a mutable [`NodeRef`] to the parent node, if it exists.
     #[inline(always)]
-    pub fn parent_mut(&'t mut self) -> Result<NodeRef<'t, '_, &'t mut Tree<'t>>> {
+    pub fn parent_mut<'r>(&'r mut self) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
         let parent = self.tree.as_ref().parent(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_mut(),
+            tree: tree_ref_mut!(self.tree),
             index: parent,
             seed: Seed::None,
             _hack: PhantomData,
@@ -685,10 +686,10 @@ where
 
     /// Returns a mutable [`NodeRef`] to the previous sibling, if it exists.
     #[inline(always)]
-    pub fn prev_sibling_mut(&'t mut self) -> Result<NodeRef<'t, '_, &'t mut Tree<'t>>> {
+    pub fn prev_sibling_mut<'r>(&'r mut self) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
         let sibling = self.tree.as_ref().prev_sibling(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_mut(),
+            tree: tree_ref_mut!(self.tree),
             index: sibling,
             seed: Seed::None,
             _hack: PhantomData,
@@ -697,10 +698,10 @@ where
 
     /// Returns a mutable [`NodeRef`] to the next sibling, if it exists.
     #[inline(always)]
-    pub fn next_sibling_mut(&'t mut self) -> Result<NodeRef<'t, '_, &'t mut Tree<'t>>> {
+    pub fn next_sibling_mut<'r>(&'r mut self) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
         let sibling = self.tree.as_ref().next_sibling(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_mut(),
+            tree: tree_ref_mut!(self.tree),
             index: sibling,
             seed: Seed::None,
             _hack: PhantomData,
@@ -709,10 +710,10 @@ where
 
     /// Get a mutable [`NodeRef`] to the first child of this node, if it exists.
     #[inline(always)]
-    pub fn first_child_mut(&'t mut self) -> Result<NodeRef<'t, '_, &'t mut Tree<'t>>> {
+    pub fn first_child_mut<'r>(&'r mut self) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
         let child = self.tree.as_ref().first_child(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_mut(),
+            tree: tree_ref_mut!(self.tree),
             index: child,
             seed: Seed::None,
             _hack: PhantomData,
@@ -721,10 +722,10 @@ where
 
     /// Get a mutable [`NodeRef`] to the last child of this node, if it exists.
     #[inline(always)]
-    pub fn last_child_mut(&'t mut self) -> Result<NodeRef<'t, '_, &'t mut Tree<'t>>> {
+    pub fn last_child_mut<'r>(&'r mut self) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
         let child = self.tree.as_ref().last_child(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_mut(),
+            tree: tree_ref_mut!(self.tree),
             index: child,
             seed: Seed::None,
             _hack: PhantomData,
@@ -734,10 +735,13 @@ where
     /// Get a mutable [`NodeRef`] to the child of this node at the given
     /// position, if it exists.
     #[inline(always)]
-    pub fn child_at_mut(&'t mut self, pos: usize) -> Result<NodeRef<'t, '_, &'t mut Tree<'t>>> {
+    pub fn child_at_mut<'r>(
+        &'r mut self,
+        pos: usize,
+    ) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
         let child = self.tree.as_ref().child_at(self.index, pos)?;
         Ok(NodeRef {
-            tree: self.tree.as_mut(),
+            tree: tree_ref_mut!(self.tree),
             index: child,
             seed: Seed::None,
             _hack: PhantomData,
@@ -747,10 +751,13 @@ where
     /// Get a mutable [`NodeRef`] to the child of this node with the given key,
     /// if it exists.
     #[inline(always)]
-    pub fn find_child_mut(&'t mut self, key: &str) -> Result<NodeRef<'t, '_, &'t mut Tree<'t>>> {
+    pub fn find_child_mut<'r>(
+        &'r mut self,
+        key: &str,
+    ) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
         let child = self.tree.as_ref().find_child(self.index, key)?;
         Ok(NodeRef {
-            tree: self.tree.as_mut(),
+            tree: tree_ref_mut!(self.tree),
             index: child,
             seed: Seed::None,
             _hack: PhantomData,
@@ -760,10 +767,10 @@ where
     /// Get a mutable [`NodeRef`] to the first sibling of this node, if it
     /// exists.
     #[inline(always)]
-    pub fn first_sibling_mut(&'t mut self) -> Result<NodeRef<'t, '_, &'t mut Tree<'t>>> {
+    pub fn first_sibling_mut<'r>(&'r mut self) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
         let sibling = self.tree.as_ref().first_sibling(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_mut(),
+            tree: tree_ref_mut!(self.tree),
             index: sibling,
             seed: Seed::None,
             _hack: PhantomData,
@@ -773,10 +780,10 @@ where
     /// Get a mutable [`NodeRef`] to the last sibling of this node, if it
     /// exists.
     #[inline(always)]
-    pub fn last_sibling_mut(&'t mut self) -> Result<NodeRef<'t, '_, &'t mut Tree<'t>>> {
+    pub fn last_sibling_mut<'r>(&'r mut self) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
         let sibling = self.tree.as_ref().last_sibling(self.index)?;
         Ok(NodeRef {
-            tree: self.tree.as_mut(),
+            tree: tree_ref_mut!(self.tree),
             index: sibling,
             seed: Seed::None,
             _hack: PhantomData,
@@ -786,10 +793,13 @@ where
     /// Get a mutable [`NodeRef`] to the sibling of this node at the given
     /// position, if it exists.
     #[inline(always)]
-    pub fn sibling_at_mut(&'t mut self, pos: usize) -> Result<NodeRef<'t, '_, &'t mut Tree<'t>>> {
+    pub fn sibling_at_mut<'r>(
+        &'r mut self,
+        pos: usize,
+    ) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
         let sibling = self.tree.as_ref().sibling_at(self.index, pos)?;
         Ok(NodeRef {
-            tree: self.tree.as_mut(),
+            tree: tree_ref_mut!(self.tree),
             index: sibling,
             seed: Seed::None,
             _hack: PhantomData,
@@ -799,10 +809,13 @@ where
     /// Get a mutable [`NodeRef`] to the sibling of this node with the given
     /// key, if it exists.
     #[inline(always)]
-    pub fn find_sibling_mut(&'t mut self, key: &str) -> Result<NodeRef<'t, '_, &'t mut Tree<'t>>> {
+    pub fn find_sibling_mut<'r>(
+        &'r mut self,
+        key: &str,
+    ) -> Result<NodeRef<'a, 't, '_, &'t mut Tree<'a>>> {
         let sibling = self.tree.as_ref().find_sibling(self.index, key)?;
         Ok(NodeRef {
-            tree: self.tree.as_mut(),
+            tree: tree_ref_mut!(self.tree),
             index: sibling,
             seed: Seed::None,
             _hack: PhantomData,
@@ -916,14 +929,10 @@ where
     /// Unlike [`get`](#method.get), this method will succeed if the node does
     /// not exist and will retain the seed to lazy assignment. It will still
     /// return a `NodeNotFound` error if the current node does not exist.
-    pub fn get_mut<'r1, 'r2, 'k2, S: Into<Seed<'k2>>>(
-        &'r1 mut self,
+    pub fn get_mut<'r, 'k2, S: Into<Seed<'k2>>>(
+        &'r mut self,
         lookup: S,
-    ) -> Result<NodeRef<'t, 'k2, &'r1 mut Tree<'t>>>
-    where
-        't: 'r1 + 'r2,
-        'r1: 'r2,
-    {
+    ) -> Result<NodeRef<'a, 't, 'k2, &'t mut Tree<'a>>> {
         if self.seed != Seed::None {
             return Err(Error::NodeNotFound);
         }
