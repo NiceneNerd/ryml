@@ -74,6 +74,23 @@ unsafe impl cxx::ExternType for Substr {
     type Kind = cxx::kind::Trivial;
 }
 
+#[repr(C)]
+pub struct NodeData<'t> {
+    pub node_type: NodeType,
+    pub key: NodeScalar<'t>,
+    pub value: NodeScalar<'t>,
+    pub parent: usize,
+    pub first_child: usize,
+    pub last_child: usize,
+    pub next_sibling: usize,
+    pub prev_sibling: usize,
+}
+
+unsafe impl cxx::ExternType for NodeData<'_> {
+    type Id = cxx::type_id!("c4::yml::NodeData");
+    type Kind = cxx::kind::Trivial;
+}
+
 /// A bitmask for marking node types.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -118,11 +135,11 @@ unsafe impl cxx::ExternType for NodeType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeScalar<'a> {
     /// The tag associated with this node.
-    tag: &'a str,
+    pub tag: &'a str,
     /// The text of the node scalar value.
-    scalar: &'a str,
+    pub scalar: &'a str,
     /// The text of the anchor associated with this node.
-    anchor: &'a str,
+    pub anchor: &'a str,
 }
 
 unsafe impl cxx::ExternType for NodeScalar<'_> {
@@ -197,6 +214,8 @@ pub(crate) mod ffi {
         type substr = super::Substr;
         #[namespace = "c4::yml"]
         type RepC = super::RepC;
+        #[namespace = "c4::yml"]
+        type NodeData<'a> = super::NodeData<'a>;
     }
     #[namespace = "shimmy"]
     extern "Rust" {
@@ -256,6 +275,10 @@ pub(crate) mod ffi {
         fn arena_size(self: &Tree) -> usize;
         fn arena_capacity(self: &Tree) -> usize;
         fn arena_slack(self: &Tree) -> Result<usize>;
+
+        fn get(self: &Tree, i: usize) -> Result<*const NodeData>;
+        #[cxx_name = "get"]
+        fn get_mut(self: Pin<&mut Tree>, i: usize) -> Result<*mut NodeData>;
 
         fn resolve(self: Pin<&mut Tree>) -> Result<()>;
 

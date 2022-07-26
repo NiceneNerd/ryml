@@ -1,6 +1,7 @@
 //! TODO
 #![deny(missing_docs)]
 #![feature(core_ffi_c)]
+use node::NodeRef;
 use std::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
 mod inner;
@@ -54,6 +55,15 @@ impl Clone for Tree<'_> {
             inner: inner::ffi::clone_tree(self.inner.deref()),
             _data: TreeData::Borrowed(PhantomData),
         }
+    }
+}
+
+impl<'s, 't> AsRef<Tree<'s>> for Tree<'s>
+where
+    's: 't,
+{
+    fn as_ref(&self) -> &Tree<'s> {
+        self
     }
 }
 
@@ -149,6 +159,17 @@ impl<'a> Tree<'a> {
     #[inline(always)]
     pub fn root_id(&self) -> Result<usize> {
         Ok(self.inner.root_id()?)
+    }
+
+    /// Get a reference to the root node.
+    #[inline(always)]
+    pub fn root_ref(&'a self) -> Result<NodeRef<'a, '_, &Self>> {
+        Ok(NodeRef {
+            tree: self,
+            index: self.root_id()?,
+            seed: node::Seed::None,
+            _compiler_hack: PhantomData,
+        })
     }
 
     /// Get the total number of nodes.
@@ -1081,5 +1102,12 @@ mod tests {
         tree.set_val_tag(1, "!str")?;
         assert_eq!("hello: !str world\n", &tree.emit()?);
         Ok(())
+    }
+
+    #[test]
+    fn node_ref() {
+        let tree = Tree::parse(SRC).unwrap();
+        let root_ref = tree.root_ref().unwrap();
+        println!("{}", root_ref.get().unwrap().value.tag)
     }
 }
