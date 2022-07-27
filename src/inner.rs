@@ -37,6 +37,15 @@ impl From<&str> for CSubstr {
     }
 }
 
+impl From<Substr> for CSubstr {
+    fn from(s: Substr) -> Self {
+        CSubstr {
+            ptr: s.as_ptr(),
+            len: s.len(),
+        }
+    }
+}
+
 unsafe impl cxx::ExternType for CSubstr {
     type Id = cxx::type_id!("c4::csubstr");
     type Kind = cxx::kind::Trivial;
@@ -83,7 +92,7 @@ unsafe impl cxx::ExternType for Substr {
 /// not a serious performance concern, it can be safer to use the getters
 /// instead, which return [`Option`]s.
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeData<'t> {
     /// The node type flags.
     pub node_type: NodeType,
@@ -141,7 +150,7 @@ unsafe impl cxx::ExternType for NodeData<'_> {
 
 /// A bitmask for marking node types.
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u64)]
 pub enum NodeType {
     /// no type is set
@@ -524,6 +533,8 @@ pub(crate) mod ffi {
             parent: usize,
             after: usize,
         ) -> Result<usize>;
+
+        fn copy_to_arena(self: Pin<&mut Tree>, s: csubstr) -> Result<substr>;
 
         fn emit(tree: &Tree, buffer: substr, error_on_excess: bool) -> Result<substr>;
         fn emit_json(tree: &Tree, buffer: substr, error_on_excess: bool) -> Result<substr>;

@@ -1076,12 +1076,14 @@ impl<'a> Tree<'a> {
 
     #[inline(always)]
     fn set_key(&mut self, node: usize, key: &str) -> Result<()> {
-        Ok(self.inner.pin_mut()._set_key(node, key.into(), 0)?)
+        let new_key = self.inner.pin_mut().copy_to_arena(key.into())?;
+        Ok(self.inner.pin_mut()._set_key(node, new_key.into(), 0)?)
     }
 
     #[inline(always)]
     fn set_val(&mut self, node: usize, val: &str) -> Result<()> {
-        Ok(self.inner.pin_mut()._set_val(node, val.into(), 0)?)
+        let new_val = self.inner.pin_mut().copy_to_arena(val.into())?;
+        Ok(self.inner.pin_mut()._set_val(node, new_val.into(), 0)?)
     }
 
     #[inline(always)]
