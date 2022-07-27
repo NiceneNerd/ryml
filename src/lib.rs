@@ -1,4 +1,84 @@
-//! TODO
+//! # ryml: Rapid YAML Bindings for Rust
+//!
+//! ![GPL 3](https://img.shields.io/crates/l/ryml)
+//! ![Crates.io version](https://img.shields.io/crates/v/ryml)
+//! ![GitHub issues](https://img.shields.io/github/issues/NiceneNerd/ryml)
+//!
+//! [Rapid YAML/ryml](https://github.com/biojppm/rapidyaml) is a C++ library to
+//! parse and emit YAML, and do it fast. The `ryml` crate provides fairly thin
+//! but safe (I think) FFI bindings to bring this power to Rust.
+//!
+//! This crate is currently is early, early alpha. Not all of the C++ API is
+//! covered, and some of it probably will not be, but the core functionality is
+//! all in place (indeed, much more than the official Python bindings).
+//!
+//! A basic example of how to use this crate:
+//!
+//! ```rust
+//! # fn main() -> Result<(), ryml::Error> {
+//! use ryml::Tree;
+//!
+//! static SRC: &str = r#"
+//! Hello: World
+//! Names: [Caleb, Voronwe, 'Nicene Nerd']
+//! Credo: !!apostolicus
+//!   - in Deum, Patrem omnipotentem
+//!   - et in Iesum Christum, Filium eius unicum
+//!   - in Spiritum Sanctum
+//! "#;
+//!
+//! let mut tree = Tree::parse(SRC)?;
+//! assert_eq!(10, tree.len());
+//!
+//! // First, the low-level, index-based API
+//! let root_id = tree.root_id()?;
+//! assert_eq!(root_id, 0);
+//! assert_eq!(tree.num_children(root_id)?, 3);
+//! for i in 0..tree.num_children(root_id)? {
+//!    let child_id = tree.child_at(root_id, i)?;
+//!    println!("{}", tree.key_scalar(child_id)?.scalar); // "Hello", "Names", "Credo"
+//! }
+//!
+//! // Next, the high-level, NodeRef API
+//! let world = tree.root_ref()?.get("Hello")?;
+//! assert_eq!(world.val()?, "World");
+//! let credo = tree.root_ref()?.get("Credo")?;
+//! assert!(credo.is_seq()?);
+//! assert_eq!(credo.val_tag()?, "!!apostolicus");    
+//! for node in credo.iter()? {
+//!    println!("{}", node.val()?);
+//! }
+//!
+//! // Mutate the tree
+//! {
+//!     let mut root_ref_mut = tree.root_ref_mut()?;
+//!     let mut credo = root_ref_mut.get_mut("Credo")?;
+//!     let mut amen = credo.get_mut(3)?; // A new index
+//!     amen.set_val("Amen")?;
+//! }
+//!
+//! // Serialize the tree back to a string
+//! let new_text = tree.emit()?;
+//!
+//! static END: &str = r#"Hello: World
+//! Names:
+//!   - Caleb
+//!   - Voronwe
+//!   - 'Nicene Nerd'
+//! Credo: !!apostolicus
+//!   - 'in Deum, Patrem omnipotentem'
+//!   - 'et in Iesum Christum, Filium eius unicum'
+//!   - in Spiritum Sanctum
+//!   - Amen
+//! "#;
+//!
+//! assert_eq!(new_text, END);
+//!
+//! Ok(())
+//! # }
+//! ```
+//!
+//! For more usage information, see the full documentation.
 #![deny(missing_docs)]
 #![feature(core_ffi_c)]
 use std::{marker::PhantomData, ops::Deref};
@@ -125,7 +205,7 @@ impl<'a> Tree<'a> {
         })
     }
 
-    /// Emit YAML to an owned string.
+    /// Emit tree as YAML to an owned string.
     #[inline(always)]
     pub fn emit(&self) -> Result<String> {
         let mut buf = vec![0; self.inner.capacity() * 32 + self.inner.arena_capacity()];
@@ -140,7 +220,23 @@ impl<'a> Tree<'a> {
         Ok(written.to_string())
     }
 
-    /// Emit YAML to the given buffer. Returns the number of bytes written.
+    /// Emit tree as JSON to an owned string.
+    #[inline(always)]
+    pub fn emit_json(&self) -> Result<String> {
+        let mut buf = vec![0; self.inner.capacity() * 32 + self.inner.arena_capacity()];
+        let written = inner::ffi::emit_json(
+            self.inner.as_ref().unwrap(),
+            inner::Substr {
+                ptr: buf.as_mut_ptr(),
+                len: buf.len(),
+            },
+            true,
+        )?;
+        Ok(written.to_string())
+    }
+
+    /// Emit tree as YAML to the given buffer. Returns the number of bytes
+    /// written.
     #[inline(always)]
     pub fn emit_to_buffer(&self, buf: &mut [u8]) -> Result<usize> {
         let written = inner::ffi::emit(
@@ -154,14 +250,42 @@ impl<'a> Tree<'a> {
         Ok(written.len)
     }
 
-    /// Emit YAML to the given writer. Returns the number of bytes written.
+    /// Emit tree as JSON to the given buffer. Returns the number of bytes
+    /// written.
+    #[inline(always)]
+    pub fn emit_json_to_buffer(&self, buf: &mut [u8]) -> Result<usize> {
+        let written = inner::ffi::emit_json(
+            self.inner.as_ref().unwrap(),
+            inner::Substr {
+                ptr: buf.as_mut_ptr(),
+                len: buf.len(),
+            },
+            true,
+        )?;
+        Ok(written.len)
+    }
+
+    /// Emit tree as YAML to the given writer. Returns the number of bytes
+    /// written.
     #[inline(always)]
     pub fn emit_to_writer<W: std::io::Write + std::io::Seek>(
         &self,
         writer: &mut W,
     ) -> Result<usize> {
         let written =
-            inner::ffi::emit_to_rwriter(&self.inner, Box::new(inner::RWriter { writer }))?;
+            inner::ffi::emit_to_rwriter(&self.inner, Box::new(inner::RWriter { writer }), false)?;
+        Ok(written)
+    }
+
+    /// Emit tree as JSON to the given writer. Returns the number of bytes
+    /// written.
+    #[inline(always)]
+    pub fn emit_json_to_writer<W: std::io::Write + std::io::Seek>(
+        &self,
+        writer: &mut W,
+    ) -> Result<usize> {
+        let written =
+            inner::ffi::emit_to_rwriter(&self.inner, Box::new(inner::RWriter { writer }), false)?;
         Ok(written)
     }
 

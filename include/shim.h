@@ -75,5 +75,5 @@ namespace shimmy
         return tree.move(&src, node, new_parent, after);
     }
 
-    size_t emit_to_rwriter(ryml::Tree const &tree, rust::Box<RWriter> writer);
+    size_t emit_to_rwriter(ryml::Tree const &tree, rust::Box<RWriter> writer, bool json);
 }

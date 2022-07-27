@@ -1,7 +1,8 @@
 #include "ryml/src/inner.rs.h"
 #include "ryml/include/shim.h"
 
-namespace shimmy {
+namespace shimmy
+{
 
     struct WriterRust
     {
@@ -40,10 +41,10 @@ namespace shimmy {
     using EmitterRust = c4::yml::Emitter<WriterRust>;
 
     size_t
-    emit_to_rwriter(ryml::Tree const &tree, rust::Box<RWriter> writer)
+    emit_to_rwriter(ryml::Tree const &tree, rust::Box<RWriter> writer, bool json)
     {
         EmitterRust em(std::move(writer));
-        return em.emit(c4::yml::EMIT_YAML, tree, true).len;
+        return em.emit(json ? c4::yml::EMIT_JSON : c4::yml::EMIT_YAML, tree, true).len;
     }
 
 }

@@ -257,6 +257,7 @@ impl RWriter<'_> {
     }
 }
 
+#[allow(clippy::needless_lifetimes)] // Needed because of some weirdness at line 539
 #[cxx::bridge]
 pub(crate) mod ffi {
     #[namespace = "c4"]
@@ -535,7 +536,7 @@ pub(crate) mod ffi {
         fn clone_tree(tree: &Tree) -> UniquePtr<Tree>;
         fn parse(text: &str) -> Result<UniquePtr<Tree>>;
         unsafe fn parse_in_place(text: *mut c_char, len: usize) -> Result<UniquePtr<Tree>>;
-        fn emit_to_rwriter(tree: &Tree, writer: Box<RWriter>) -> Result<usize>;
+        fn emit_to_rwriter(tree: &Tree, writer: Box<RWriter>, json: bool) -> Result<usize>;
 
         fn tree_node_type(tree: &Tree, node: usize) -> Result<NodeType>;
 

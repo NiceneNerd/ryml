@@ -680,7 +680,8 @@ macro_rules! maybe_construct {
         match $self.seed.0 {
             SeedInner::None => $self.index,
             SeedInner::Index(idx) => {
-                let index = $self.tree.insert_child($self.index, idx)?;
+                let after = $self.tree.as_ref().child_at($self.index, idx - 1)?;
+                let index = $self.tree.insert_child($self.index, after)?;
                 $self.index = index;
                 $self.seed = Seed(SeedInner::None);
                 index
