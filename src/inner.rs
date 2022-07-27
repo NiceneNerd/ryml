@@ -1,3 +1,5 @@
+#![allow(missing_docs, non_upper_case_globals)]
+use auto_enum::enum_flags;
 use core::ops::Deref;
 use std::io;
 
@@ -148,10 +150,8 @@ unsafe impl cxx::ExternType for NodeData<'_> {
     type Kind = cxx::kind::Trivial;
 }
 
+#[enum_flags(u64)]
 /// A bitmask for marking node types.
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(u64)]
 pub enum NodeType {
     /// no type is set
     NoType = 0,

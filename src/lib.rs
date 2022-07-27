@@ -832,7 +832,7 @@ impl<'a> Tree<'a> {
         Ok(self
             .inner
             .pin_mut()
-            .to_keyval(node, key.into(), val.into(), more_flags as u64)?)
+            .to_keyval(node, key.into(), val.into(), more_flags.0)?)
     }
 
     /// Turn the given node with the given key into a map.
@@ -850,7 +850,7 @@ impl<'a> Tree<'a> {
         Ok(self
             .inner
             .pin_mut()
-            .to_map_with_key(node, key.into(), more_flags as u64)?)
+            .to_map_with_key(node, key.into(), more_flags.0)?)
     }
 
     /// Turn the given node with the given key into a sequence.
@@ -869,7 +869,7 @@ impl<'a> Tree<'a> {
         Ok(self
             .inner
             .pin_mut()
-            .to_seq_with_key(node, key.into(), more_flags as u64)?)
+            .to_seq_with_key(node, key.into(), more_flags.0)?)
     }
 
     /// Turn the given node into a value.
@@ -889,7 +889,7 @@ impl<'a> Tree<'a> {
         Ok(self
             .inner
             .pin_mut()
-            .to_val(node, val.into(), more_flags as u64)?)
+            .to_val(node, val.into(), more_flags.0)?)
     }
 
     /// Turn the given node into a stream.
@@ -901,7 +901,7 @@ impl<'a> Tree<'a> {
     /// Turn the given node into a stream with additional flags.
     #[inline(always)]
     pub fn to_stream_with_flags(&mut self, node: usize, more_flags: NodeType) -> Result<()> {
-        Ok(self.inner.pin_mut().to_stream(node, more_flags as u64)?)
+        Ok(self.inner.pin_mut().to_stream(node, more_flags.0)?)
     }
 
     /// Turn the given node into a map.
@@ -913,7 +913,7 @@ impl<'a> Tree<'a> {
     /// Turn the given node into a map with additional flags.
     #[inline(always)]
     pub fn to_map_with_flags(&mut self, node: usize, more_flags: NodeType) -> Result<()> {
-        Ok(self.inner.pin_mut().to_map(node, more_flags as u64)?)
+        Ok(self.inner.pin_mut().to_map(node, more_flags.0)?)
     }
 
     /// Turn the given node into a sequence.
@@ -925,7 +925,7 @@ impl<'a> Tree<'a> {
     /// Turn the given node into a sequence with additional flags.
     #[inline(always)]
     pub fn to_seq_with_flags(&mut self, node: usize, more_flags: NodeType) -> Result<()> {
-        Ok(self.inner.pin_mut().to_seq(node, more_flags as u64)?)
+        Ok(self.inner.pin_mut().to_seq(node, more_flags.0)?)
     }
 
     /// Turn the given node into a doc.
@@ -937,7 +937,7 @@ impl<'a> Tree<'a> {
     /// Turn the given node into a doc with additional flags.
     #[inline(always)]
     pub fn to_doc_with_flags(&mut self, node: usize, more_flags: NodeType) -> Result<()> {
-        Ok(self.inner.pin_mut().to_doc(node, more_flags as u64)?)
+        Ok(self.inner.pin_mut().to_doc(node, more_flags.0)?)
     }
 
     /// Set the tag on the key of the given node.
@@ -1066,12 +1066,12 @@ impl<'a> Tree<'a> {
     /// returning whether the change was possible.
     #[inline(always)]
     pub fn change_type(&mut self, node: usize, new_type: NodeType) -> Result<bool> {
-        Ok(self.inner.pin_mut().change_type(node, new_type as u64)?)
+        Ok(self.inner.pin_mut().change_type(node, new_type.0)?)
     }
 
     #[inline(always)]
     fn set_flags(&mut self, node: usize, new_type: NodeType) -> Result<()> {
-        Ok(self.inner.pin_mut()._set_flags(node, new_type as u64)?)
+        Ok(self.inner.pin_mut()._set_flags(node, new_type.0)?)
     }
 
     #[inline(always)]
