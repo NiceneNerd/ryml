@@ -87,6 +87,7 @@ Some welcome to-dos:
 - Anything that would improve error handling
 - `no_std` support is an eventual goal
 - Safety improvements
+- Could definitely use more tests and such
 
 ## License
 
