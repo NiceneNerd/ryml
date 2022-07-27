@@ -156,29 +156,74 @@ pub enum NodeType {
     /// no type is set
     NoType = 0,
     /// a leaf node, has a (possibly empty) value
-    Val = (1 << 0),
+    Val = 1 << 0,
     /// is member of a map, must have non-empty key
-    Key = (1 << 1),
+    Key = 1 << 1,
     /// a map: a parent of keyvals
-    Map = (1 << 2),
+    Map = 1 << 2,
     /// a seq: a parent of vals
-    Seq = (1 << 3),
+    Seq = 1 << 3,
     /// a document
-    Doc = (1 << 4),
+    Doc = 1 << 4,
     /// a stream: a seq of docs
-    Stream = (1 << 5) | (1 << 3),
+    Stream = 1 << 5 | 1 << 3,
     /// a *reference: the key references an &anchor
-    KeyRef = (1 << 6),
+    KeyRef = 1 << 6,
     /// a *reference: the val references an &anchor
-    ValRef = (1 << 7),
+    ValRef = 1 << 7,
     /// the key has an &anchor
-    KeyAnch = (1 << 8),
+    KeyAnch = 1 << 8,
     /// the val has an &anchor
-    ValAnch = (1 << 9),
+    ValAnch = 1 << 9,
     /// the key has an explicit tag/type
-    KeyTag = (1 << 10),
+    KeyTag = 1 << 10,
     /// the val has an explicit tag/type
-    ValTag = (1 << 11),
+    ValTag = 1 << 11,
+    // these flags are from a work in progress and should not be used yet
+    /// mark container with single-line flow format (seqs as '[val1,val2], maps
+    /// as '{key: val, key2: val2}')
+    WipStyleFlowSl = 1 << 14,
+    /// mark container with multi-line flow format (seqs as '[val1,\nval2], maps
+    /// as '{key: val,\nkey2: val2}')
+    WipStyleFlowMl = 1 << 15,
+    /// mark container with block format (seqs as '- val\n', maps as 'key: val')
+    WipStyleBlock = 1 << 16,
+    /// mark key scalar as multiline, block literal |
+    WipKeyLiteral = 1 << 17,
+    /// mark val scalar as multiline, block literal |
+    WipValLiteral = 1 << 18,
+    /// mark key scalar as multiline, block folded >
+    WipKeyFolded = 1 << 19,
+    /// mark val scalar as multiline, block folded >
+    WipValFolded = 1 << 20,
+    /// mark key scalar as single quoted
+    WipKeySquo = 1 << 21,
+    /// mark val scalar as single quoted
+    WipValSquo = 1 << 22,
+    /// mark key scalar as double quoted
+    WipKeyDquo = 1 << 23,
+    /// mark val scalar as double quoted
+    WipValDquo = 1 << 24,
+    /// mark key scalar as plain scalar (unquoted, even when multiline)
+    WipKeyPlain = 1 << 25,
+    /// mark val scalar as plain scalar (unquoted, even when multiline)
+    WipValPlain = 1 << 26,
+    /// ?
+    WipKeyStyle = 1 << 17 | 1 << 19 | 1 << 21 | 1 << 23 | 1 << 25,
+    /// ?
+    WipValStyle = 1 << 18 | 1 << 20 | 1 << 22 | 1 << 24 | 1 << 26,
+    /// features: mark key scalar as having \n in its contents
+    WipKeyFtNl = 1 << 27,
+    /// features: mark val scalar as having \n in its contents
+    WipValFtNl = 1 << 28,
+    /// features: mark key scalar as having single quotes in its contents
+    WipKeyFtSq = 1 << 29,
+    /// features: mark val scalar as having single quotes in its contents
+    WipValFtSq = 1 << 30,
+    /// features: mark key scalar as having double quotes in its contents
+    WipKeyFtDq = 1 << 31,
+    /// features: mark val scalar as having double quotes in its contents
+    WipValFtDq = 1 << 32,
 }
 
 unsafe impl cxx::ExternType for NodeType {
