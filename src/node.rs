@@ -125,8 +125,8 @@ where
 
     /// Get the tree the node belongs to.
     #[inline(always)]
-    pub fn tree(&self) -> &Tree<'_> {
-        self.tree.as_ref()
+    pub fn tree<'r>(&'r self) -> &'t Tree<'a> {
+        tree_ref!(self.tree)
     }
 
     /// Get the node data, if it exists and is still valid.
@@ -136,8 +136,9 @@ where
     /// same node as it orginally pointed to. However, it is guaranteed to
     /// still point to a valid node on the tree.
     #[inline(always)]
-    pub fn data(&'t self) -> Option<&NodeData<'t>> {
-        let ptr = self.tree.as_ref().inner.get(self.index).ok()?;
+    pub fn data<'r>(&'r self) -> Option<&NodeData<'t>> {
+        let tree_ref = tree_ref!(self.tree);
+        let ptr = tree_ref.inner.get(self.index).ok()?;
         unsafe { ptr.as_ref() }
     }
 
@@ -147,9 +148,10 @@ where
     /// Calling this method if the node no longer exists is undefined
     /// behaviour.
     #[inline(always)]
-    pub unsafe fn data_unchecked(&'t self) -> &NodeData<'t> {
-        self.tree
-            .as_ref()
+    pub unsafe fn data_unchecked<'r>(&'r self) -> &'t NodeData<'t> {
+        #[allow(unused_unsafe)]
+        let tree_ref = tree_ref!(self.tree);
+        tree_ref
             .inner
             .get(self.index)
             .unwrap_unchecked()
@@ -712,14 +714,15 @@ impl<'a, 't> NodeRef<'a, 't, '_, &'t mut Tree<'a>> {
 
     /// Get a mutable reference to the tree the node belongs to.
     #[inline(always)]
-    pub fn tree_mut(&'t mut self) -> &mut Tree<'a> {
-        self.tree
+    pub fn tree_mut<'r>(&'r mut self) -> &'t mut Tree<'a> {
+        tree_ref_mut!(self.tree)
     }
 
     /// Get a mutable reference to the node data, if it exists and is still
     /// valid.
-    pub fn data_mut(&'t mut self) -> Option<&mut NodeData<'t>> {
-        let ptr = inner::ffi::Tree::get_mut(self.tree.inner.pin_mut(), self.index).ok()?;
+    pub fn data_mut<'r>(&'r mut self) -> Option<&'t mut NodeData<'t>> {
+        let tree_ref = tree_ref_mut!(self.tree);
+        let ptr = inner::ffi::Tree::get_mut(tree_ref.inner.pin_mut(), self.index).ok()?;
         unsafe { ptr.as_mut() }
     }
 
@@ -730,8 +733,10 @@ impl<'a, 't> NodeRef<'a, 't, '_, &'t mut Tree<'a>> {
     /// Calling this method if the node no longer exists is undefined behaviour
     /// and should be used with the utmost caution.
     #[inline(always)]
-    pub unsafe fn data_unchecked_mut(&'t mut self) -> &mut NodeData<'t> {
-        inner::ffi::Tree::get_mut(self.tree.inner.pin_mut(), self.index)
+    pub unsafe fn data_unchecked_mut<'r>(&'r mut self) -> &'t mut NodeData<'t> {
+        #[allow(unused_unsafe)]
+        let tree_ref = tree_ref_mut!(self.tree);
+        inner::ffi::Tree::get_mut(tree_ref.inner.pin_mut(), self.index)
             .unwrap_unchecked()
             .as_mut()
             .unwrap_unchecked()
