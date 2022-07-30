@@ -592,6 +592,7 @@ pub(crate) mod ffi {
         fn clone_tree(tree: &Tree) -> UniquePtr<Tree>;
         fn parse(text: &str) -> Result<UniquePtr<Tree>>;
         unsafe fn parse_in_place(text: *mut c_char, len: usize) -> Result<UniquePtr<Tree>>;
+        #[cfg(not(windows))]
         fn emit_to_rwriter(tree: &Tree, writer: Box<RWriter>, json: bool) -> Result<usize>;
 
         fn tree_node_type(tree: &Tree, node: usize) -> Result<NodeType>;

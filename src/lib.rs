@@ -265,6 +265,7 @@ impl<'a> Tree<'a> {
         Ok(written.len)
     }
 
+    #[cfg(not(windows))]
     /// Emit tree as YAML to the given writer. Returns the number of bytes
     /// written.
     #[inline(always)]
@@ -277,6 +278,7 @@ impl<'a> Tree<'a> {
         Ok(written)
     }
 
+    #[cfg(not(windows))]
     /// Emit tree as JSON to the given writer. Returns the number of bytes
     /// written.
     #[inline(always)]
