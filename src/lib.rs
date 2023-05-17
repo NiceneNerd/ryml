@@ -80,7 +80,6 @@
 //!
 //! For more usage information, see the full documentation.
 #![deny(missing_docs)]
-#![feature(core_ffi_c)]
 use std::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
 mod inner;

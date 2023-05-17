@@ -118,30 +118,30 @@ impl NodeData<'_> {
     /// Get the index to the parent node, if one exists.
     #[inline(always)]
     pub fn parent(&self) -> Option<usize> {
-        (self.parent != super::NONE).then(|| self.parent)
+        (self.parent != super::NONE).then_some(self.parent)
     }
 
     /// Get the index to the first child node, if one exists.
     #[inline(always)]
     pub fn first_child(&self) -> Option<usize> {
-        (self.first_child != super::NONE).then(|| self.first_child)
+        (self.first_child != super::NONE).then_some(self.first_child)
     }
     /// Get the index to the last_child node, if one exists.
     #[inline(always)]
     pub fn last_child(&self) -> Option<usize> {
-        (self.last_child != super::NONE).then(|| self.last_child)
+        (self.last_child != super::NONE).then_some(self.last_child)
     }
 
     /// Get the index to the next sibling node, if one exists.
     #[inline(always)]
     pub fn next_sibling(&self) -> Option<usize> {
-        (self.next_sibling != super::NONE).then(|| self.next_sibling)
+        (self.next_sibling != super::NONE).then_some(self.next_sibling)
     }
 
     /// Get the index to the previous sibling node, if one exists.
     #[inline(always)]
     pub fn prev_sibling(&self) -> Option<usize> {
-        (self.prev_sibling != super::NONE).then(|| self.prev_sibling)
+        (self.prev_sibling != super::NONE).then_some(self.prev_sibling)
     }
 }
 
