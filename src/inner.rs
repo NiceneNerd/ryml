@@ -1,6 +1,9 @@
 #![allow(missing_docs, non_upper_case_globals)]
+#[cfg(not(feature = "std"))]
+use acid_io as io;
 use auto_enum::enum_flags;
 use core::ops::Deref;
+#[cfg(feature = "std")]
 use std::io;
 
 #[repr(C)]
@@ -149,6 +152,9 @@ unsafe impl cxx::ExternType for NodeData<'_> {
     type Id = cxx::type_id!("c4::yml::NodeData");
     type Kind = cxx::kind::Trivial;
 }
+
+#[cfg(not(feature = "std"))]
+use core as std;
 
 #[enum_flags(u64)]
 /// A bitmask for marking node types.
@@ -592,7 +598,7 @@ pub(crate) mod ffi {
         fn clone_tree(tree: &Tree) -> UniquePtr<Tree>;
         fn parse(text: &str) -> Result<UniquePtr<Tree>>;
         unsafe fn parse_in_place(text: *mut c_char, len: usize) -> Result<UniquePtr<Tree>>;
-        #[cfg(not(windows))]
+        #[cfg(all(not(windows), feature = "std"))]
         fn emit_to_rwriter(tree: &Tree, writer: Box<RWriter>, json: bool) -> Result<usize>;
 
         fn tree_node_type(tree: &Tree, node: usize) -> Result<NodeType>;

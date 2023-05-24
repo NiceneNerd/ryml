@@ -80,8 +80,9 @@
 //!
 //! For more usage information, see the full documentation.
 #![deny(missing_docs)]
-use std::{marker::PhantomData, ops::Deref};
-use thiserror::Error;
+#![cfg_attr(all(not(test), not(feature = "std")), no_std)]
+use core::{marker::PhantomData, ops::Deref};
+use thiserror_no_std::Error;
 mod inner;
 mod node;
 pub use inner::{NodeData, NodeScalar, NodeType};
@@ -110,7 +111,7 @@ pub enum Error {
     Other(#[from] cxx::Exception),
 }
 
-type Result<T> = std::result::Result<T, Error>;
+type Result<T> = core::result::Result<T, Error>;
 
 enum TreeData<'a> {
     Owned,
@@ -125,7 +126,7 @@ pub struct Tree<'a> {
 
 impl PartialEq for Tree<'_> {
     fn eq(&self, other: &Self) -> bool {
-        std::ptr::eq(self.inner.deref(), other.inner.deref())
+        core::ptr::eq(self.inner.deref(), other.inner.deref())
     }
 }
 
@@ -159,7 +160,7 @@ where
 impl Eq for Tree<'_> {}
 
 impl core::fmt::Debug for Tree<'_> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Tree")
             .field("len", &self.len())
             .field("capacity", &self.capacity())
@@ -205,6 +206,7 @@ impl<'a> Tree<'a> {
     }
 
     /// Emit tree as YAML to an owned string.
+    #[cfg(any(test, feature = "std"))]
     #[inline(always)]
     pub fn emit(&self) -> Result<String> {
         let mut buf = vec![0; self.inner.capacity() * 32 + self.inner.arena_capacity()];
@@ -220,6 +222,7 @@ impl<'a> Tree<'a> {
     }
 
     /// Emit tree as JSON to an owned string.
+    #[cfg(any(test, feature = "std"))]
     #[inline(always)]
     pub fn emit_json(&self) -> Result<String> {
         let mut buf = vec![0; self.inner.capacity() * 32 + self.inner.arena_capacity()];
@@ -264,7 +267,7 @@ impl<'a> Tree<'a> {
         Ok(written.len)
     }
 
-    #[cfg(not(windows))]
+    #[cfg(all(not(windows), feature = "std"))]
     /// Emit tree as YAML to the given writer. Returns the number of bytes
     /// written.
     #[inline(always)]
@@ -277,7 +280,7 @@ impl<'a> Tree<'a> {
         Ok(written)
     }
 
-    #[cfg(not(windows))]
+    #[cfg(all(not(windows), feature = "std"))]
     /// Emit tree as JSON to the given writer. Returns the number of bytes
     /// written.
     #[inline(always)]
@@ -440,7 +443,7 @@ impl<'a> Tree<'a> {
     #[inline(always)]
     pub fn node_type_as_str(&self, node: usize) -> Result<&str> {
         let ptr = self.inner.type_str(node)?;
-        Ok(unsafe { std::ffi::CStr::from_ptr(ptr).to_str().unwrap_unchecked() })
+        Ok(unsafe { core::ffi::CStr::from_ptr(ptr).to_str().unwrap_unchecked() })
     }
 
     /// Get the text of the given node, if it exists and is a key.
