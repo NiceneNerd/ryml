@@ -7,5 +7,6 @@ fn main() {
     println!("cargo:rerun-if-changed=src/inner.rs");
     println!("cargo:rerun-if-changed=src/shim.cc");
     println!("cargo:rerun-if-changed=include/shim.h");
+    println!("cargo:rerun-if-changed=include/ryml.h");
     println!("cargo:rustc-link-lib=ryml");
 }
