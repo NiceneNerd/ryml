@@ -197,7 +197,7 @@ impl<'a> Tree<'a> {
     #[inline(always)]
     pub fn parse_in_place(mut text: impl AsMut<str> + 'a) -> Result<Tree<'a>> {
         let tree = unsafe {
-            inner::ffi::parse_in_place(text.as_mut().as_mut_ptr() as *mut i8, text.as_mut().len())
+            inner::ffi::parse_in_place(text.as_mut().as_mut_ptr() as *mut core::ffi::c_char, text.as_mut().len())
         }?;
         Ok(Self {
             inner: tree,

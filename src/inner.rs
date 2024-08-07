@@ -668,7 +668,7 @@ seq: [0 ,  1, 2, 3]"#;
     #[test]
     fn mut_tree() -> Result<(), cxx::Exception> {
         let mut src = SRC.to_string();
-        let mut tree = unsafe { ffi::parse_in_place(src.as_mut_ptr() as *mut i8, src.len())? };
+        let mut tree = unsafe { ffi::parse_in_place(src.as_mut_ptr() as *mut core::ffi::c_char, src.len())? };
         let bar_val = tree.find_child(0, &("bar".into()))?;
         tree.pin_mut()._set_val(bar_val, "r353".into(), 0)?;
         println!("{}", &src);
